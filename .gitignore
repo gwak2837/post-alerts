@@ -1,0 +1,4 @@
+chromedriver
+.env
+.DS_Store
+debug.log
