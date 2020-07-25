@@ -1,7 +1,6 @@
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from bs4 import BeautifulSoup
+from selenium.common.exceptions import WebDriverException
+import bs4
 import telegram
 import time
 from queue import Queue
@@ -31,10 +30,15 @@ class SetQueue:
 
 def get_elements(css_selector):
     for _ in range(100):
-        element = BeautifulSoup(driver.page_source, "html.parser").select(css_selector)
-        if len(element) != 0:
-            break
+        try:
+            element = bs4.BeautifulSoup(driver.page_source, "html.parser").select(css_selector)
+            if len(element) != 0:
+                break
+        except WebDriverException as e:
+            print("At BeautifulSoup():", e)
+
         time.sleep(1)
+
     return element
 
 
