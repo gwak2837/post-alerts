@@ -4,16 +4,78 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import telegram
 import time
+from queue import Queue
 
 
-def get_html(url):
-    driver.get(url)
-    return BeautifulSoup(driver.page_source, "html.parser")
+class SetQueue:
+    def __init__(self, maxsize):
+        self.items_queue = Queue(maxsize)
+        self.items_set = set()
+
+    def put(self, item):
+        self.items_queue.put_nowait(item)
+        self.items_set.add(item)
+
+    def get(self):
+        self.items_set.remove(self.items_queue.get_nowait())
+
+    def have(self, item):
+        return item in self.items_set
+
+    def full(self):
+        return self.items_queue.full()
+
+    def print(self):
+        print(self.items_set)
 
 
-def get_element(url, css_selector):
-    driver.get(url)
-    BeautifulSoup(driver.page_source, "html.parser")
+def get_elements(css_selector):
+    while True:
+        element = BeautifulSoup(driver.page_source, "html.parser").select(css_selector)
+        if len(element) != 0:
+            break
+        time.sleep(1)
+    return element
+
+
+def get_message(title):
+    driver.get("https://cauin.cau.ac.kr" + title.attrs["href"])
+
+    date = get_elements(date_css_selector)[0].text
+    content = get_elements(content_css_selector)[0].text
+
+    return "제목: " + title.text.strip() + "\n\n날짜: " + date + "\n\n내용: " + content
+
+
+def send_message(bot, message):
+    for _ in range(100):
+        try:
+            updates = bot.getUpdates()
+            break
+        except telegram.error.NetworkError as e:
+            print("At getUpdates():")
+            print(e)
+            time.sleep(1)
+
+    chat_id_list = []
+    for update in updates:
+        chat_id = update.message.chat.id
+
+        if chat_id in chat_id_list:
+            continue
+
+        for _ in range(100):
+            try:
+                bot.sendMessage(chat_id=chat_id, text=message)
+                break
+            except telegram.error.NetworkError as e:
+                print("At sendMessage():")
+                print(e)
+                time.sleep(1)
+
+        chat_id_list.append(chat_id)
+
+    print("The message has sent.")
 
 
 # Get ID and password from 'info.txt'
@@ -23,8 +85,14 @@ with open(".env", "r") as f:
     telegram_bot_token = f.readline()
 
 # Connect to the telegram bot
-bot = telegram.Bot(token=telegram_bot_token)
-chat_id = bot.getUpdates()[-1].message.chat.id
+for _ in range(100):
+    try:
+        cauin_bot = telegram.Bot(token=telegram_bot_token)
+        break
+    except telegram.error.TimedOut as e:
+        print("At Bot():")
+        print(e)
+        time.sleep(1)
 
 # Setting chrome options
 options = webdriver.ChromeOptions()
@@ -46,63 +114,53 @@ driver.execute_script(
     "const getParameter = WebGLRenderingContext.getParameter;WebGLRenderingContext.prototype.getParameter = function(parameter) {if (parameter === 37445) {return 'NVIDIA Corporation'} if (parameter === 37446) {return 'NVIDIA GeForce GTX 980 Ti OpenGL Engine';}return getParameter(parameter);};"
 )
 
+# Initialize constants and a variable
+posts_url = "https://cauin.cau.ac.kr/cauin/"
+title_css_selector = "#container > aside > div > div > div > ul > li > a"
+date_css_selector = "#content > div.viewzone > div.topbox > div.detailbox > ul > li.date > em"
+content_css_selector = "#content > div.viewzone > div.contentbox > div"
+sent_titles = SetQueue(15)
 
 # Try to login
 print("Login...")
-driver.get("https://cauin.cau.ac.kr/cauin/")
+driver.get(posts_url)
 driver.find_element_by_name("userID").send_keys(userID)
 driver.find_element_by_name("password").send_keys(password)
 driver.find_element_by_xpath('//*[@id="frmLogon"]/div/div/button').click()
 
 # Get the latest title of post
-while True:
-    root_page = BeautifulSoup(driver.page_source, "html.parser")
-    try:
-        old_title = root_page.select("#aside > div > div > ul > li:nth-child(1) > a > span")[0].text
-        break
-    except IndexError as e:
-        print(e)
-        time.sleep(3)
+print("Get the latest title of post...")
+old_title = get_elements(title_css_selector)[0]
+send_message(cauin_bot, get_message(old_title))
+old_title_text = old_title.text.strip()
+sent_titles.put(old_title_text)
 
 # Scrape a new post
 scrapping_period = 10
 while True:
-    root_page = get_html("https://cauin.cau.ac.kr/cauin/")
-    for _ in range(10):
-        try:
-            latest_title = root_page.select("#aside > div > div > ul > li:nth-child(1) > a > span")[0].text
-            break
-        except IndexError as e:
-            print(e)
-            time.sleep(3)
+    driver.get(posts_url)
+    titles = get_elements(title_css_selector)
+    latest_title_text = titles[0].text.strip()
 
-    # If there is no new post, continue
-    if latest_title == old_title:
-        print(
-            "Latest title:", latest_title, time.strftime("%c", time.localtime(time.time())),
-        )
+    # If there isn't new post, continue
+    if latest_title_text == old_title_text:
+        print("Latest title:", latest_title_text, time.strftime("%c", time.localtime(time.time())))
         time.sleep(scrapping_period)
         continue
 
     # If there is a new post
-    for i in range(1, 10):
-        if root_page.select("#aside > div > div > ul > li:nth-child(" + str(i) + ") > a > span")[0].text == old_title:
-            break
+    for title in titles:
+        if sent_titles.have(title.text.strip()):
+            continue
 
-        present_post_link = (
-            "https://cauin.cau.ac.kr"
-            + root_page.select("#aside > div > div > ul > li:nth-child(" + str(i) + ") > a")[0].attrs["href"]
-        )
-        post_page = get_html(present_post_link)
-        title = post_page.select("#content > div.viewzone > div.topbox > h2")[0].text
-        date = post_page.select("#content > div.viewzone > div.topbox > div.detailbox > ul > li.date > em")[0].text
-        content = post_page.select("#content > div.viewzone > div.contentbox > div")[0].text
+        send_message(cauin_bot, get_message(title))
 
-        text = "Title: " + title + "\n\n" + "Date:" + date + "\n\n" + "Content:" + content
-        bot.sendMessage(chat_id=chat_id, text=text)
-        print(text)
+        if sent_titles.full():
+            sent_titles.get()
 
-    old_title = latest_title
+        sent_titles.put(title.text.strip())
+
+    old_title_text = latest_title_text
     time.sleep(scrapping_period)
 
 
