@@ -15,5 +15,5 @@
 
 #### 2. 실행
 ```shell
-> python fenhan-post-alerts.py
+> python fenhan.py
 ```
