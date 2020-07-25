@@ -1,4 +1,4 @@
-## coolenjoy-post-alerts
+## Coolenjoy Post Alerts
 
 쿨앤조이 새 글 알림이
 

@@ -1,7 +1,6 @@
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from bs4 import BeautifulSoup
+from selenium.common.exceptions import WebDriverException
+import bs4
 import telegram
 import time
 from queue import Queue
@@ -30,21 +29,45 @@ class SetQueue:
 
 
 def get_elements(css_selector):
-    while True:
-        element = BeautifulSoup(driver.page_source, "html.parser").select(css_selector)
-        if len(element) != 0:
-            break
+    for _ in range(100):
+        try:
+            element = bs4.BeautifulSoup(driver.page_source, "html.parser").select(css_selector)
+            if len(element) != 0:
+                break
+        except WebDriverException as e:
+            print("At BeautifulSoup():", e)
+
         time.sleep(1)
+
     return element
 
 
 def get_message(title):
-    driver.get("https://cauin.cau.ac.kr" + title.attrs["href"])
+    driver.get(title.attrs["href"])
 
-    date = get_elements(date_css_selector)[0].text
-    content = get_elements(content_css_selector)[0].text
+    date = get_elements(date_css_selector)[0].attrs["title"]
 
-    return "제목: " + title.text.strip() + "\n\n날짜: " + date + "\n\n내용: " + content
+    try:
+        headers = get_elements(header_css_selector)[0].contents
+        header_buffer = []
+        for header in headers:
+            if str(type(header)) == "<class 'bs4.element.Tag'>":
+                header_buffer.append(header.th.text + header.td.text)
+        header = "\n".join(header_buffer)
+    except IndexError as e:
+        print("At header:", e)
+
+    try:
+        contents = get_elements(content_css_selector)[0].contents
+        content_buffer = []
+        for content in contents:
+            if str(type(content)) == "<class 'bs4.element.NavigableString'>" and content != "\n":
+                content_buffer.append(content.strip("\n "))
+        content = "\n".join(content_buffer)
+    except IndexError as e:
+        print("At content:", e)
+
+    return "题目: " + title.text.strip() + "\n\n发表于: " + date + "\n\n基本信息:\n" + header + "\n\n本文:\n" + content
 
 
 def send_message(bot, message):
@@ -53,8 +76,7 @@ def send_message(bot, message):
             updates = bot.getUpdates()
             break
         except telegram.error.NetworkError as e:
-            print("At getUpdates():")
-            print(e)
+            print("At getUpdates():", e)
             time.sleep(1)
 
     chat_id_list = []
@@ -69,8 +91,7 @@ def send_message(bot, message):
                 bot.sendMessage(chat_id=chat_id, text=message)
                 break
             except telegram.error.NetworkError as e:
-                print("At sendMessage():")
-                print(e)
+                print("At sendMessage():", e)
                 time.sleep(1)
 
         chat_id_list.append(chat_id)
@@ -80,18 +101,15 @@ def send_message(bot, message):
 
 # Get ID and password from 'info.txt'
 with open(".env", "r") as f:
-    userID = f.readline()
-    password = f.readline()
     telegram_bot_token = f.readline()
 
 # Connect to the telegram bot
 for _ in range(100):
     try:
-        cauin_bot = telegram.Bot(token=telegram_bot_token)
+        fenhan_bot = telegram.Bot(token=telegram_bot_token)
         break
     except telegram.error.TimedOut as e:
-        print("At Bot():")
-        print(e)
+        print("At Bot():", e)
         time.sleep(1)
 
 # Setting chrome options
@@ -115,23 +133,20 @@ driver.execute_script(
 )
 
 # Initialize constants and a variable
-posts_url = "https://cauin.cau.ac.kr/cauin/"
-title_css_selector = "#container > aside > div > div > div > ul > li > a"
-date_css_selector = "#content > div.viewzone > div.topbox > div.detailbox > ul > li.date > em"
-content_css_selector = "#content > div.viewzone > div.contentbox > div"
-sent_titles = SetQueue(15)
-
-# Try to login
-print("Login...")
-driver.get(posts_url)
-driver.find_element_by_name("userID").send_keys(userID)
-driver.find_element_by_name("password").send_keys(password)
-driver.find_element_by_xpath('//*[@id="frmLogon"]/div/div/button').click()
+posts_url = "http://bbs.icnkr.com/forum.php?mod=forumdisplay&fid=1603&filter=author&orderby=dateline&sortid=344"
+title_css_selector = "#separatorline ~ tbody > tr > th > a.s.xst"
+date_css_selector = (
+    "#postlist > div > table > tbody > tr:first-child > td:nth-child(2) > div.pi > div.pti > div.authi > em > span"
+)
+header_css_selector = "#postlist > div > table > tbody > tr:first-child > td:nth-child(2) > div.pct > div.pcb > div.typeoption > table > tbody"
+content_css_selector = "#postlist > div > table > tbody > tr:first-child > td:nth-child(2) > div.pct > div.pcb > div.t_fsz > table > tbody > tr > td"
+sent_titles = SetQueue(50)
 
 # Get the latest title of post
 print("Get the latest title of post...")
+driver.get(posts_url)
 old_title = get_elements(title_css_selector)[0]
-send_message(cauin_bot, get_message(old_title))
+send_message(fenhan_bot, get_message(old_title))
 old_title_text = old_title.text.strip()
 sent_titles.put(old_title_text)
 
@@ -151,9 +166,9 @@ while True:
     # If there is a new post
     for title in titles:
         if sent_titles.have(title.text.strip()):
-            continue
+            break
 
-        send_message(cauin_bot, get_message(title))
+        send_message(fenhan_bot, get_message(title))
 
         if sent_titles.full():
             sent_titles.get()

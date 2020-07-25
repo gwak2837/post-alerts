@@ -1,5 +1,17 @@
-chromedriver
-.env
+# macOS
 .DS_Store
-.vscode
+
+# Chrome driver
+chromedriver
 debug.log
+
+# Python
+__pycache__
+
+# Visual Studio Code
+.vscode
+
+# Custom
+.env
+
+
