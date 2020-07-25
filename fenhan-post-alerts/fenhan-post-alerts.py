@@ -30,7 +30,7 @@ class SetQueue:
 
 
 def get_elements(css_selector):
-    while True:
+    for _ in range(100):
         element = BeautifulSoup(driver.page_source, "html.parser").select(css_selector)
         if len(element) != 0:
             break
@@ -43,19 +43,25 @@ def get_message(title):
 
     date = get_elements(date_css_selector)[0].attrs["title"]
 
-    headers = get_elements(header_css_selector)[0].contents
-    header_buffer = []
-    for header in headers:
-        if str(type(header)) == "<class 'bs4.element.Tag'>":
-            header_buffer.append(header.th.text + header.td.text)
-    header = "\n".join(header_buffer)
+    try:
+        headers = get_elements(header_css_selector)[0].contents
+        header_buffer = []
+        for header in headers:
+            if str(type(header)) == "<class 'bs4.element.Tag'>":
+                header_buffer.append(header.th.text + header.td.text)
+        header = "\n".join(header_buffer)
+    except IndexError as e:
+        print("At header:", e)
 
-    contents = get_elements(content_css_selector)[0].contents
-    content_buffer = []
-    for content in contents:
-        if str(type(content)) == "<class 'bs4.element.NavigableString'>" and content != "\n":
-            content_buffer.append(content.strip("\n "))
-    content = "\n".join(content_buffer)
+    try:
+        contents = get_elements(content_css_selector)[0].contents
+        content_buffer = []
+        for content in contents:
+            if str(type(content)) == "<class 'bs4.element.NavigableString'>" and content != "\n":
+                content_buffer.append(content.strip("\n "))
+        content = "\n".join(content_buffer)
+    except IndexError as e:
+        print("At content:", e)
 
     return "题目: " + title.text.strip() + "\n\n发表于: " + date + "\n\n基本信息:\n" + header + "\n\n本文:\n" + content
 
@@ -66,8 +72,7 @@ def send_message(bot, message):
             updates = bot.getUpdates()
             break
         except telegram.error.NetworkError as e:
-            print("At getUpdates():")
-            print(e)
+            print("At getUpdates():", e)
             time.sleep(1)
 
     chat_id_list = []
@@ -82,8 +87,7 @@ def send_message(bot, message):
                 # bot.sendMessage(chat_id=chat_id, text=message)
                 break
             except telegram.error.NetworkError as e:
-                print("At sendMessage():")
-                print(e)
+                print("At sendMessage():", e)
                 time.sleep(1)
 
         chat_id_list.append(chat_id)
@@ -101,8 +105,7 @@ for _ in range(100):
         fenhan_bot = telegram.Bot(token=telegram_bot_token)
         break
     except telegram.error.TimedOut as e:
-        print("At Bot():")
-        print(e)
+        print("At Bot():", e)
         time.sleep(1)
 
 # Setting chrome options
@@ -159,7 +162,7 @@ while True:
     # If there is a new post
     for title in titles:
         if sent_titles.have(title.text.strip()):
-            continue
+            break
 
         send_message(fenhan_bot, get_message(title))
 
