@@ -25,53 +25,62 @@ class SetQueue:
         print(self.items_set)
 
 
-# Connect to the telegram bot
-# - pure function
-def get_telegram_bot(token):
-    for _ in range(100):
-        try:
-            telegram_bot = telegram.Bot(token=token)
-            break
-        except telegram.error.TimedOut as error:
-            print("At telegram.Bot():", error)
-            time.sleep(1)
-
-    for _ in range(100):
-        try:
-            updates = telegram_bot.get_updates(timeout=10)
-            break
-        except telegram.error.NetworkError as error:
-            print("At telegram_bot.get_updates():", error)
-            time.sleep(1)
-
-    chat_id_set = set()
-    for update in updates:
-        chat_id_set.add(update.message.chat.id)
-
-    return telegram_bot, chat_id_set
-
-
-# Send the message to the telegram bot
-# - pure function
-def send_message(telegram_bot, chat_ids, message):
-    message_sent = False
-
-    for chat_id in chat_ids:
-        for _ in range(100):
+class TelegramBot:
+    def __init__(self, token):
+        # Connect to the telegram bot
+        for _ in range(10):
             try:
-                telegram_bot.send_message(chat_id=chat_id, text=message)
-                message_sent = True
+                bot = telegram.Bot(token=token)
                 break
-            except telegram.error.NetworkError as error:
-                print("At telegram_bot.send_message():", error)
+            except telegram.error.TimedOut as error:
+                print("At telegram.Bot():", error)
                 time.sleep(1)
 
-    if message_sent:
-        print("The message has sent.", message[: message.find("\n")], "...")
-    else:
-        print("Failed to send message because there is no recipient")
+        # Set the telegram bot and chat id set
+        self.bot = bot
+        self.chat_id_set = self.get_telegram_chat_id()
 
-    return message_sent
+    # Get the present list of non-duplicate recipients
+    # - pure function
+    def get_telegram_chat_id(self):
+        for _ in range(10):
+            try:
+                updates = self.bot.get_updates(timeout=10)
+                break
+            except telegram.error.NetworkError as error:
+                print("At telegram_bot.get_updates():", error)
+                time.sleep(1)
+
+        chat_id_set = set()
+        for update in updates:
+            chat_id_set.add(update.message.chat.id)
+
+        return chat_id_set
+
+    # Send the message to the telegram bot
+    def send_message(self, message):
+        # Add new recipients if exist
+        self.chat_id_set.union(self.get_telegram_chat_id())
+
+        message_sent = False
+
+        # Send the message to all users in chat_id_set
+        for chat_id in self.chat_id_set:
+            for _ in range(10):
+                try:
+                    self.bot.send_message(chat_id=chat_id, text=message)
+                    message_sent = True
+                    break
+                except telegram.error.NetworkError as error:
+                    print("At telegram_bot.send_message():", error)
+                    time.sleep(1)
+
+        if message_sent:
+            print("The message has sent.", message[: message.find("\n")], "...")
+        else:
+            print("Failed to send message because there is no recipient")
+
+        return message_sent
 
 
 # - driver.page_source
@@ -94,14 +103,14 @@ def get_elements(css_selector, wait_sec=100):
 def scrape_posts(posts_url, base_url, titles_css_selector, token, get_message, period=10, queue_size=0):
     try:
         print("Connect to the telegram bot...")
-        telegram_bot, chat_id_set = get_telegram_bot(token)
+        telegram_bot = TelegramBot(token)
 
         print("Get the latest title of post...")
         titles = get_elements(titles_css_selector)
         sent_titles = SetQueue(len(titles) if queue_size == 0 else queue_size)
         old_title = titles[0].text.strip()
         driver.get(base_url + titles[0].attrs["href"])
-        if not send_message(telegram_bot, chat_id_set, get_message(old_title)):
+        if not telegram_bot.send_message(get_message(old_title)):
             return
 
         sent_titles.put(old_title)
@@ -125,7 +134,7 @@ def scrape_posts(posts_url, base_url, titles_css_selector, token, get_message, p
                     break
 
                 driver.get(base_url + title.attrs["href"])
-                if send_message(telegram_bot, chat_id_set, get_message(title_text)):
+                if telegram_bot.send_message(get_message(title_text)):
                     sent_titles.put(title_text)
 
             old_title = latest_title
