@@ -1,15 +1,16 @@
 import os
 import sys
+from dotenv import load_dotenv
 
 # Add modules in common/functions.py - will be deprecated
 sys.path.append(os.path.dirname(os.getcwd()))
 
-from common.functions import get_elements
-from common.functions import scraping_posts
 from common.functions import driver
+from common.functions import get_elements
+from common.functions import scrape_posts
 
 
-# driver
+# - driver.page_source
 def get_message(title):
     date = get_elements(DATE_CSS_SELECTOR)[0].attrs["title"]
 
@@ -20,8 +21,8 @@ def get_message(title):
             if str(type(header)) == "<class 'bs4.element.Tag'>":
                 header_buffer.append(header.th.text + header.td.text)
         header = "\n".join(header_buffer)
-    except IndexError as error:
-        print("At header:", error)
+    except IndexError:
+        print("No post header.")
         header = "None"
 
     try:
@@ -31,16 +32,16 @@ def get_message(title):
             if str(type(content)) == "<class 'bs4.element.NavigableString'>" and content != "\n":
                 content_buffer.append(content.strip("\n "))
         content = "\n".join(content_buffer)
-    except IndexError as error:
-        print("At content:", error)
+    except IndexError:
+        print("No post content.")
         content = "None"
 
     return "题目: " + title + "\n\n发表于: " + date + "\n\n基本信息:\n" + header + "\n\n本文:\n" + content
 
 
-# Get ID and password from '.env'
-with open(".env", "r") as f:
-    fenhan_bot_token = f.readline()
+# Get user ID, password, bot token from '.env'
+load_dotenv()
+fenhan_bot_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 
 # Initialize constants and a variable
@@ -51,10 +52,11 @@ DATE_CSS_SELECTOR = TD_CSS_SELECTOR + " > div.pi > div.pti > div.authi > em > sp
 HEADER_CSS_SELECTOR = TD_CSS_SELECTOR + " > div.pct > div.pcb > div.typeoption > table > tbody"
 CONTENT_CSS_SELECTOR = TD_CSS_SELECTOR + " > div.pct > div.pcb > div.t_fsz > table > tbody > tr > td"
 
-
 # Get the latest title of post
 driver.get(POSTS_URL)
 
-scraping_posts(POSTS_URL, TITLES_CSS_SELECTOR, fenhan_bot_token, get_message)
+# Scrape the new post
+scrape_posts(POSTS_URL, "", TITLES_CSS_SELECTOR, fenhan_bot_TOKEN, get_message)
 
+# Exit the chrome when ctrl+c pressed
 driver.quit()
