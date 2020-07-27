@@ -2,7 +2,9 @@ import time
 import queue
 from abc import ABCMeta
 from abc import abstractmethod
+from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 import telegram
 
 
@@ -178,6 +180,46 @@ class Chrome(metaclass=ABCMeta):
 
             old_post_title = latest_post_title
             time.sleep(period)
+
+    def must_get_bs4_elements(self, css_selector):
+        while True:
+            time.sleep(1)
+            try:
+                elements = BeautifulSoup(self.driver.page_source, "html.parser").select(css_selector)
+                if len(elements) != 0:
+                    return elements
+            except WebDriverException as error:
+                print(error)
+                print("    at BeautifulSoup()")
+                print("    at must_get_bs4_elements()")
+
+    def get_bs4_elements(self, css_selector, wait_sec=10):
+        for _ in range(wait_sec):
+            time.sleep(1)
+            try:
+                elements = BeautifulSoup(self.driver.page_source, "html.parser").select(css_selector)
+                if len(elements) != 0:
+                    return elements
+            except WebDriverException as error:
+                print(error)
+                print("    at BeautifulSoup()")
+                print("    at get_bs4_elements()")
+
+        return elements
+
+    def get_bs4_element(self, css_selector, wait_sec=10):
+        for _ in range(wait_sec):
+            time.sleep(1)
+            try:
+                elements = BeautifulSoup(self.driver.page_source, "html.parser").select_one(css_selector)
+                if len(elements) != 0:
+                    return elements
+            except WebDriverException as error:
+                print(error)
+                print("    at BeautifulSoup()")
+                print("    at get_bs4_element()")
+
+        return elements
 
     # Go to the community page, and return a list of [post_link, post_title]
     @abstractmethod
