@@ -75,6 +75,7 @@ https://python-telegram-bot.readthedocs.io/en/stable/index.html
 https://saurabh-kumar.com/python-dotenv/
 
 
+
 ## 개발 노트
 
 #### `StaleElementReferenceException`
@@ -83,7 +84,7 @@ https://saurabh-kumar.com/python-dotenv/
 
 
 #### Element search perfomance 
-``` js
+``` bash
 ID > name > css selector > xpath
 ```
 `driver = selenium.webdriver.Chrome` 일 때
