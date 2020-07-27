@@ -1,8 +1,8 @@
 import time
 import queue
+from abc import ABCMeta
+from abc import abstractmethod
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
-import bs4
 import telegram
 
 
@@ -38,11 +38,12 @@ class TelegramBot:
 
         # Set the telegram bot and chat id set
         self.bot = bot
-        self.chat_id_set = self.get_telegram_chat_id()
+        self.chat_ids = self.get_chat_ids()
 
     # Get the present list of non-duplicate recipients
     # - pure function
-    def get_telegram_chat_id(self):
+    def get_chat_ids(self):
+        # Get the recent chat id list from the bot
         for _ in range(10):
             try:
                 updates = self.bot.get_updates(timeout=10)
@@ -51,21 +52,18 @@ class TelegramBot:
                 print("At telegram_bot.get_updates():", error)
                 time.sleep(1)
 
-        chat_id_set = set()
-        for update in updates:
-            chat_id_set.add(update.message.chat.id)
-
-        return chat_id_set
+        # Exclude duplicate chat id
+        return {update.message.chat.id for update in updates}
 
     # Send the message to the telegram bot
     def send_message(self, message):
         # Add new recipients if exist
-        self.chat_id_set.union(self.get_telegram_chat_id())
+        self.chat_ids |= self.get_chat_ids()
 
         message_sent = False
 
         # Send the message to all users in chat_id_set
-        for chat_id in self.chat_id_set:
+        for chat_id in self.chat_ids:
             for _ in range(10):
                 try:
                     self.bot.send_message(chat_id=chat_id, text=message)
@@ -76,121 +74,118 @@ class TelegramBot:
                     time.sleep(1)
 
         if message_sent:
-            print("The message has sent.", message[: message.find("\n")], "...")
+            print("The message has sent to", self.chat_ids, message[: message.find("\n")], "...")
         else:
             print("Failed to send message because there is no recipient")
 
         return message_sent
 
 
-# - driver.page_source
-def get_elements(css_selector, wait_sec=100):
-    for _ in range(wait_sec):
-        try:
-            element = bs4.BeautifulSoup(driver.page_source, "html.parser").select(css_selector)
-            if len(element) != 0:
-                break
-        except WebDriverException as error:
-            print("At bs4.BeautifulSoup():", error)
+class Chrome(metaclass=ABCMeta):
+    def __init__(self, token, wait_sec=10):
+        # Set the telegram bot
+        self.telegram_bot = TelegramBot(token)
+        print("Connected to the telegram bot.")
 
-        time.sleep(1)
+        # Setting chrome options
+        options = webdriver.ChromeOptions()
+        options.add_argument("headless")
+        options.add_argument("disable-gpu")
+        # options.add_argument("no-sandbox")
+        options.add_argument("disable-dev-shm-usage")
+        options.add_argument("window-size=1920x1080")
+        options.add_argument(
+            "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36"
+        )
+        options.add_argument("lang=ko_KR")
+        options.add_argument("log-level=2")
+        prefs = {
+            "profile.default_content_setting_values": {
+                "cookies": 1,
+                "images": 2,
+                "plugins": 2,
+                "popups": 2,
+                "geolocation": 2,
+                "notifications": 2,
+                "auto_select_certificate": 2,
+                "fullscreen": 2,
+                "mouselock": 2,
+                "mixed_script": 2,
+                "media_stream": 2,
+                "media_stream_mic": 2,
+                "media_stream_camera": 2,
+                "protocol_handlers": 2,
+                "ppapi_broker": 2,
+                "automatic_downloads": 2,
+                "midi_sysex": 2,
+                "push_messaging": 2,
+                "ssl_cert_decisions": 2,
+                "metro_switch_to_desktop": 2,
+                "protected_media_identifier": 2,
+                "app_banner": 2,
+                "site_engagement": 2,
+                "durable_storage": 2,
+            }
+        }
+        options.add_experimental_option("prefs", prefs)
 
-    return element
+        # Create chrome driver
+        self.driver = webdriver.Chrome("../chromedriver", options=options)
+        self.driver.implicitly_wait(wait_sec)
+        self.driver.execute_script(
+            "Object.defineProperty(navigator, 'plugins', {get: function() {return[1, 2, 3, 4, 5]}})"
+        )
+        self.driver.execute_script(
+            "Object.defineProperty(navigator, 'languages', {get: function() {return ['ko-KR', 'ko']}})"
+        )
+        self.driver.execute_script(
+            "const getParameter = WebGLRenderingContext.getParameter;WebGLRenderingContext.prototype.getParameter = function(parameter) {if (parameter === 37445) {return 'NVIDIA Corporation'} if (parameter === 37446) {return 'NVIDIA GeForce GTX 980 Ti OpenGL Engine';}return getParameter(parameter);};"
+        )
+        print("The chrome driver has been created.")
 
+    # Scrape the new post
+    def scrape_posts(self, period=10, queue_size=0):
+        posts = self.get_posts()
+        old_post_link, old_post_title = posts[0]
 
-# 이 함수를 실행하기 전에 글 목록이 있는 페이지로 이동한다. (필요 시 로그인해야 함)
-# - driver.get()
-def scrape_posts(posts_url, base_url, titles_css_selector, token, get_message, period=10, queue_size=0):
-    try:
-        print("Connect to the telegram bot...")
-        telegram_bot = TelegramBot(token)
-
-        print("Get the latest title of post...")
-        titles = get_elements(titles_css_selector)
-        sent_titles = SetQueue(len(titles) if queue_size == 0 else queue_size)
-        old_title = titles[0].text.strip()
-        driver.get(base_url + titles[0].attrs["href"])
-        if not telegram_bot.send_message(get_message(old_title)):
+        if not self.telegram_bot.send_message(self.get_post_details(old_post_link, old_post_title)):
             return
 
-        sent_titles.put(old_title)
+        # Initialize sent_posts
+        sent_posts = SetQueue(len(posts) if queue_size == 0 else queue_size)
+        posts.reverse()
+        for _, post_title in posts:
+            sent_posts.put(post_title)
 
-        # Scrape a new post
         while True:
-            driver.get(posts_url)
-            titles = get_elements(titles_css_selector)
-            latest_title = titles[0].text.strip()
+            posts = self.get_posts()
+            latest_post_title = posts[0][1]
 
             # If there isn't new post, continue
-            if latest_title == old_title:
-                print("Latest title:", latest_title, time.strftime("%c", time.localtime(time.time())))
+            if latest_post_title == old_post_title:
+                print("The latest post title:", latest_post_title, time.strftime("%c", time.localtime(time.time())))
                 time.sleep(period)
                 continue
 
             # If there is a new post
-            for title in titles:
-                title_text = title.text.strip()
-                if sent_titles.have(title_text):
+            print("A new post has been posted.")
+            for post_link, post_title in posts:
+                if sent_posts.have(post_title):
                     break
 
-                driver.get(base_url + title.attrs["href"])
-                if telegram_bot.send_message(get_message(title_text)):
-                    sent_titles.put(title_text)
+                if self.telegram_bot.send_message(self.get_post_details(post_link, post_title)):
+                    sent_posts.put(post_title)
 
-            old_title = latest_title
+            old_post_title = latest_post_title
             time.sleep(period)
 
-    except KeyboardInterrupt:
-        print("Bye")
+    # Go to the community page, and return a list of [post_link, post_title]
+    @abstractmethod
+    def get_posts(self):
+        pass
 
+    # Go to the post details page, and return a text message with the post details
+    @abstractmethod
+    def get_post_details(self, post_link, post_title):
+        pass
 
-# Setting chrome options
-options = webdriver.ChromeOptions()
-options.add_argument("headless")
-options.add_argument("disable-gpu")
-# options.add_argument("no-sandbox")
-options.add_argument("disable-dev-shm-usage")
-options.add_argument("window-size=1920x1080")
-options.add_argument(
-    "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36"
-)
-options.add_argument("lang=ko_KR")
-options.add_argument("log-level=2")
-prefs = {
-    "profile.default_content_setting_values": {
-        "cookies": 1,
-        "images": 2,
-        "plugins": 2,
-        "popups": 2,
-        "geolocation": 2,
-        "notifications": 2,
-        "auto_select_certificate": 2,
-        "fullscreen": 2,
-        "mouselock": 2,
-        "mixed_script": 2,
-        "media_stream": 2,
-        "media_stream_mic": 2,
-        "media_stream_camera": 2,
-        "protocol_handlers": 2,
-        "ppapi_broker": 2,
-        "automatic_downloads": 2,
-        "midi_sysex": 2,
-        "push_messaging": 2,
-        "ssl_cert_decisions": 2,
-        "metro_switch_to_desktop": 2,
-        "protected_media_identifier": 2,
-        "app_banner": 2,
-        "site_engagement": 2,
-        "durable_storage": 2,
-    }
-}
-options.add_experimental_option("prefs", prefs)
-
-# Create chrome driver
-driver = webdriver.Chrome("../chromedriver", options=options)
-driver.implicitly_wait(10)
-driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: function() {return[1, 2, 3, 4, 5]}})")
-driver.execute_script("Object.defineProperty(navigator, 'languages', {get: function() {return ['ko-KR', 'ko']}})")
-driver.execute_script(
-    "const getParameter = WebGLRenderingContext.getParameter;WebGLRenderingContext.prototype.getParameter = function(parameter) {if (parameter === 37445) {return 'NVIDIA Corporation'} if (parameter === 37446) {return 'NVIDIA GeForce GTX 980 Ti OpenGL Engine';}return getParameter(parameter);};"
-)
