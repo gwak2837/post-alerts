@@ -53,3 +53,40 @@ https://blog.psangwoo.com/coding/2016/12/08/python-telegram-bot-1.html
 #### 2. 그 외
 
 각 사이트의 새로운 게시글을 텔레그램으로 보내준다.
+
+
+
+## 공식 문서
+
+#### 1. Selenium (Python)
+
+https://selenium-python.readthedocs.io/index.html
+
+#### 2. Beautiful Soup
+
+https://www.crummy.com/software/BeautifulSoup/bs4/doc/
+
+#### 3. Python Telegram Bot
+
+https://python-telegram-bot.readthedocs.io/en/stable/index.html
+
+#### 4. Python dotenv
+
+https://saurabh-kumar.com/python-dotenv/
+
+
+## 개발 노트
+
+#### `StaleElementReferenceException`
+
+특정 웹 엘리먼트가 변경됐는데 바뀌기 전의 웹 엘리먼트를 참조했을 때 발생한다. 
+
+
+#### Element search perfomance 
+``` js
+ID > name > css selector > xpath
+```
+`driver = selenium.webdriver.Chrome` 일 때
+
+`driver.find_element_by_ID()`가 제일 빠르고 `driver.find_element_by_xpath()`가 가장 느리다.
+
