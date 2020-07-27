@@ -150,7 +150,7 @@ class Chrome(metaclass=ABCMeta):
         posts = self.get_posts()
         old_post_link, old_post_title = posts[0]
 
-        if not self.telegram_bot.send_message(self.get_post_details(old_post_link, old_post_title)):
+        if not self.telegram_bot.send_message(self.get_message_from(old_post_link, old_post_title)):
             return
 
         # Initialize sent_posts
@@ -175,7 +175,7 @@ class Chrome(metaclass=ABCMeta):
                 if sent_posts.have(post_title):
                     break
 
-                if self.telegram_bot.send_message(self.get_post_details(post_link, post_title)):
+                if self.telegram_bot.send_message(self.get_message_from(post_link, post_title)):
                     sent_posts.put(post_title)
 
             old_post_title = latest_post_title
@@ -183,43 +183,44 @@ class Chrome(metaclass=ABCMeta):
 
     def must_get_bs4_elements(self, css_selector):
         while True:
-            time.sleep(1)
             try:
                 elements = BeautifulSoup(self.driver.page_source, "html.parser").select(css_selector)
-                if len(elements) != 0:
+                if elements:
                     return elements
             except WebDriverException as error:
                 print(error)
                 print("    at BeautifulSoup()")
                 print("    at must_get_bs4_elements()")
+            time.sleep(1)
 
     def get_bs4_elements(self, css_selector, wait_sec=10):
         for _ in range(wait_sec):
-            time.sleep(1)
             try:
                 elements = BeautifulSoup(self.driver.page_source, "html.parser").select(css_selector)
-                if len(elements) != 0:
+                if elements:
                     return elements
             except WebDriverException as error:
                 print(error)
                 print("    at BeautifulSoup()")
                 print("    at get_bs4_elements()")
+            time.sleep(1)
 
         return elements
 
     def get_bs4_element(self, css_selector, wait_sec=10):
         for _ in range(wait_sec):
-            time.sleep(1)
             try:
-                elements = BeautifulSoup(self.driver.page_source, "html.parser").select_one(css_selector)
-                if len(elements) != 0:
-                    return elements
+                html = self.driver.page_source.replace("<br>", "\n")
+                element = BeautifulSoup(html, "html.parser").select_one(css_selector)
+                if element:
+                    return element
             except WebDriverException as error:
                 print(error)
                 print("    at BeautifulSoup()")
                 print("    at get_bs4_element()")
+            time.sleep(1)
 
-        return elements
+        return element
 
     # Go to the community page, and return a list of [post_link, post_title]
     @abstractmethod
@@ -228,6 +229,6 @@ class Chrome(metaclass=ABCMeta):
 
     # Go to the post details page, and return a text message with the post details
     @abstractmethod
-    def get_post_details(self, post_link, post_title):
+    def get_message_from(self, post_link, post_title):
         pass
 
