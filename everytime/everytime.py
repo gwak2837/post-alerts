@@ -22,26 +22,47 @@ class EverytimeChrome(Chrome):
                 self.driver.find_element_by_css_selector(CATEGORY_CSS_SELECTOR).click()
                 break
             except (WebDriverException, NoSuchElementException) as error:
-                print(error)
+                print(error, end="")
+                print("    at get_posts()")
                 time.sleep(10)
 
         # Get all post links and titles
         post_links = self.must_get_bs4_elements(POST_LINKS_CSS_SELECTOR)
         post_titles = self.must_get_bs4_elements(POST_TITLES_CSS_SELECTOR)
 
-        return [
-            (post_link.attrs["href"], post_title.text.strip()) for post_link, post_title in zip(post_links, post_titles)
-        ]
+        return [(post_link["href"], post_title.text.strip()) for post_link, post_title in zip(post_links, post_titles)]
 
     def get_message_from(self, post_link, post_title):
         # Go to the post details page
-        self.driver.get(BASE_URL + post_link)
+        try:
+            self.driver.get(BASE_URL + post_link)
+        except WebDriverException as error:
+            print(error, end="")
+            print("    at get_message_from()")
+            return error
 
-        # Get the date of writing and the post content
-        date = self.get_bs4_element(DATE_CSS_SELECTOR).get_text()
-        content = self.get_bs4_element(CONTENT_CSS_SELECTOR).get_text()
+        # Get the date of writing
+        date = self.get_bs4_element(DATE_CSS_SELECTOR)
+        date = date.string if date else "None"
 
-        return "제목: " + post_title + "\n\n날짜: " + date + "\n\n내용:\n" + content
+        # Get the post content
+        content = self.get_bs4_element(CONTENT_CSS_SELECTOR)
+        content = content.get_text() if content else "None"
+
+        return "<제목> " + post_title + "\n\n<게시일> " + date + "\n\n<내용>\n" + content
+
+    def login(self):
+        # Try to login
+        try:
+            self.driver.get(LOGIN_URL)
+        except WebDriverException as error:
+            print(error, end="")
+            print("    at login()")
+
+        everytime_chrome.driver.find_element_by_name("userid").send_keys(user_id)
+        everytime_chrome.driver.find_element_by_name("password").send_keys(password + "\n")
+        everytime_chrome.driver.find_element_by_id("writeArticleButton")  # Wait for login to complete
+        print("Login success.")
 
 
 # Get user ID, password, bot token from '.env'
@@ -51,10 +72,10 @@ password = os.getenv("PW")
 everytime1_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
 chat_ids = set(json.loads(os.getenv("CHAT_IDs")))
 
-# Initialize constants and variables
-everytime_chrome = EverytimeChrome(everytime1_bot_token, chat_ids)
+# Initialize constants
 BASE_URL = "https://everytime.kr"
 COMMUNITY_URL = "https://everytime.kr/375118"
+LOGIN_URL = "https://everytime.kr/login?redirect=/375118"
 CATEGORY_CSS_SELECTOR = "#container > div.wrap.categories > div:nth-child(3) > span"
 POST_LINKS_CSS_SELECTOR = "#container > div.wrap.articles > article > a"
 POST_TITLES_CSS_SELECTOR = "#container > div.wrap.articles > article > a > h2"
@@ -62,15 +83,15 @@ DATE_CSS_SELECTOR = "#container > div.wrap.articles > article > a > div > time"
 CONTENT_CSS_SELECTOR = "#container > div.wrap.articles > article > a > p"
 COMMENTS_CSS_SELECTOR = ""
 
-# Try to login
-everytime_chrome.driver.get("https://everytime.kr/login?redirect=/375118")
-everytime_chrome.driver.find_element_by_name("userid").send_keys(user_id)
-everytime_chrome.driver.find_element_by_name("password").send_keys(password + "\n")
-everytime_chrome.driver.find_element_by_id("writeArticleButton")  # Wait for login to complete
-print("Login success.")
+if __name__ == "__main__":
+    # Initialize a chrome driver for Everytie
+    everytime_chrome = EverytimeChrome(everytime1_bot_token, chat_ids)
 
-# Scrape the new post after logging in
-everytime_chrome.scrape_posts()
+    # Try to login
+    everytime_chrome.login()
 
-# Exit the chrome when ctrl+c pressed
-everytime_chrome.driver.quit()
+    # Scrape the new post after logging in
+    everytime_chrome.scrape_posts()
+
+    # Exit the chrome when ctrl+c pressed
+    everytime_chrome.driver.quit()
