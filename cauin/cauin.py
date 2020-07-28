@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import json
 from dotenv import load_dotenv
 from selenium.common.exceptions import WebDriverException
 
@@ -45,16 +46,17 @@ load_dotenv()
 user_id = os.getenv("ID")
 password = os.getenv("PW")
 cauin_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+chat_ids = set(json.loads(os.getenv("CHAT_IDs")))
 
 # Initialize constants and variables
-cauin_chrome = CAUinChrome(cauin_bot_token)
+cauin_chrome = CAUinChrome(cauin_bot_token, chat_ids)
+BASE_URL = "https://cauin.cau.ac.kr"
+COMMUNITY_URL = "https://cauin.cau.ac.kr/cauin/"
 POST_LINKS_CSS_SELECTOR = "#container > aside > div > div > div > ul > li > a"
 POST_TITLES_CSS_SELECTOR = "#container > aside > div > div > div > ul > li > a > span"
 DATE_CSS_SELECTOR = "#content > div.viewzone > div.topbox > div.detailbox > ul > li.date > em"
 CONTENT_CSS_SELECTOR = "#content > div.viewzone > div.contentbox > div"
 COMMENTS_CSS_SELECTOR = ""
-COMMUNITY_URL = "https://cauin.cau.ac.kr/cauin/"
-BASE_URL = "https://cauin.cau.ac.kr"
 
 # Try to login
 cauin_chrome.driver.get(COMMUNITY_URL)
@@ -69,4 +71,3 @@ cauin_chrome.scrape_posts()
 
 # Exit the chrome when ctrl+c pressed
 cauin_chrome.driver.quit()
-
