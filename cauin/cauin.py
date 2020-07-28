@@ -19,26 +19,48 @@ class CAUinChrome(Chrome):
                 self.driver.get(COMMUNITY_URL)
                 break
             except WebDriverException as error:
-                print(error)
+                print(error, end="")
+                print("    at get_posts()")
+                self.login()
                 time.sleep(10)
 
         # Get all post links and titles
         post_links = self.must_get_bs4_elements(POST_LINKS_CSS_SELECTOR)
         post_titles = self.must_get_bs4_elements(POST_TITLES_CSS_SELECTOR)
 
-        return [
-            (post_link.attrs["href"], post_title.text.strip()) for post_link, post_title in zip(post_links, post_titles)
-        ]
+        return [(post_link["href"], post_title.text.strip()) for post_link, post_title in zip(post_links, post_titles)]
 
     def get_message_from(self, post_link, post_title):
         # Go to the post details page
-        self.driver.get(BASE_URL + post_link)
+        try:
+            self.driver.get(BASE_URL + post_link)
+        except WebDriverException as error:
+            print(error, end="")
+            print("    at get_message_from()")
+            return error
 
-        # Get the date of writing and the post content
-        date = self.get_bs4_element(DATE_CSS_SELECTOR).get_text()
-        content = self.get_bs4_element(CONTENT_CSS_SELECTOR).get_text()
+        # Get the date of writing
+        date = self.get_bs4_element(DATE_CSS_SELECTOR)
+        date = date.string if date else "None"
 
-        return "제목: " + post_title + "\n\n날짜: " + date + "\n\n내용:\n" + content
+        # Get the post content
+        content = self.get_bs4_element(CONTENT_CSS_SELECTOR)
+        content = content.get_text() if content else "None"
+
+        return "<제목> " + post_title + "\n\n<게시일> " + date + "\n\n<내용>\n" + content
+
+    def login(self):
+        try:
+            self.driver.get(COMMUNITY_URL)
+        except WebDriverException as error:
+            print(error, end="")
+            print("    at login()")
+
+        self.driver.find_element_by_name("userID").send_keys(user_id)
+        self.driver.find_element_by_name("password").send_keys(password)
+        self.driver.find_element_by_class_name("loginbtn").click()
+        self.driver.find_element_by_id("content")  # Wait for login to complete
+        print("Login success.")
 
 
 # Get user ID, password, bot token from '.env'
@@ -48,8 +70,7 @@ password = os.getenv("PW")
 cauin_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
 chat_ids = set(json.loads(os.getenv("CHAT_IDs")))
 
-# Initialize constants and variables
-cauin_chrome = CAUinChrome(cauin_bot_token, chat_ids)
+# Initialize constants
 BASE_URL = "https://cauin.cau.ac.kr"
 COMMUNITY_URL = "https://cauin.cau.ac.kr/cauin/"
 POST_LINKS_CSS_SELECTOR = "#container > aside > div > div > div > ul > li > a"
@@ -58,16 +79,16 @@ DATE_CSS_SELECTOR = "#content > div.viewzone > div.topbox > div.detailbox > ul >
 CONTENT_CSS_SELECTOR = "#content > div.viewzone > div.contentbox > div"
 COMMENTS_CSS_SELECTOR = ""
 
-# Try to login
-cauin_chrome.driver.get(COMMUNITY_URL)
-cauin_chrome.driver.find_element_by_name("userID").send_keys(user_id)
-cauin_chrome.driver.find_element_by_name("password").send_keys(password)
-cauin_chrome.driver.find_element_by_class_name("loginbtn").click()
-cauin_chrome.driver.find_element_by_id("content")  # Wait for login to complete
-print("Login success.")
 
-# Scrape the new post
-cauin_chrome.scrape_posts()
+if __name__ == "__main__":
+    # Initialize a chrome driver for CAUin
+    cauin_chrome = CAUinChrome(cauin_bot_token, chat_ids)
 
-# Exit the chrome when ctrl+c pressed
-cauin_chrome.driver.quit()
+    # Try to login
+    cauin_chrome.login()
+
+    # Scrape the new post
+    cauin_chrome.scrape_posts()
+
+    # Exit the chrome when ctrl+c pressed
+    cauin_chrome.driver.quit()
