@@ -91,10 +91,11 @@ class TelegramBot:
 class Chrome(metaclass=ABCMeta):
     def __init__(self, token, chat_ids, wait_sec=10):
         # Set the telegram bot
+        print("Connect to the telegram bot...")
         self.telegram_bot = TelegramBot(token, chat_ids)
-        print("Connected to the telegram bot.")
 
         # Setting chrome options
+        print("Initialize the chrome webdriver...")
         options = webdriver.ChromeOptions()
         options.add_argument("headless")
         options.add_argument("disable-gpu")
@@ -148,10 +149,10 @@ class Chrome(metaclass=ABCMeta):
         self.driver.execute_script(
             "const getParameter = WebGLRenderingContext.getParameter;WebGLRenderingContext.prototype.getParameter = function(parameter) {if (parameter === 37445) {return 'NVIDIA Corporation'} if (parameter === 37446) {return 'NVIDIA GeForce GTX 980 Ti OpenGL Engine';}return getParameter(parameter);};"
         )
-        print("The chrome driver has been created.")
 
     # Scrape the new post
     def scrape_posts(self, period=10, queue_size=0):
+        print("Get the latest posts...")
         posts = self.get_posts()
         old_post_link, old_post_title = posts[0]
 
