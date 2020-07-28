@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import json
 from dotenv import load_dotenv
 from selenium.common.exceptions import WebDriverException
 from selenium.common.exceptions import NoSuchElementException
@@ -48,23 +49,24 @@ load_dotenv()
 user_id = os.getenv("ID")
 password = os.getenv("PW")
 everytime1_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+chat_ids = set(json.loads(os.getenv("CHAT_IDs")))
 
 # Initialize constants and variables
-everytime_chrome = EverytimeChrome(everytime1_bot_token)
+everytime_chrome = EverytimeChrome(everytime1_bot_token, chat_ids)
+BASE_URL = "https://everytime.kr"
+COMMUNITY_URL = "https://everytime.kr/375118"
 CATEGORY_CSS_SELECTOR = "#container > div.wrap.categories > div:nth-child(3) > span"
 POST_LINKS_CSS_SELECTOR = "#container > div.wrap.articles > article > a"
 POST_TITLES_CSS_SELECTOR = "#container > div.wrap.articles > article > a > h2"
 DATE_CSS_SELECTOR = "#container > div.wrap.articles > article > a > div > time"
 CONTENT_CSS_SELECTOR = "#container > div.wrap.articles > article > a > p"
 COMMENTS_CSS_SELECTOR = ""
-COMMUNITY_URL = "https://everytime.kr/375118"
-BASE_URL = "https://everytime.kr"
 
 # Try to login
 everytime_chrome.driver.get("https://everytime.kr/login?redirect=/375118")
 everytime_chrome.driver.find_element_by_name("userid").send_keys(user_id)
 everytime_chrome.driver.find_element_by_name("password").send_keys(password + "\n")
-everytime_chrome.driver.find_element_by_id("writeArticleButton")  # Wait for redirecting
+everytime_chrome.driver.find_element_by_id("writeArticleButton")  # Wait for login to complete
 print("Login success.")
 
 # Scrape the new post after logging in
