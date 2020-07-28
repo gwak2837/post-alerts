@@ -28,19 +28,21 @@ class SetQueue:
 
 
 class TelegramBot:
-    def __init__(self, token):
+    def __init__(self, token, chat_ids):
         # Connect to the telegram bot
         for _ in range(10):
             try:
                 bot = telegram.Bot(token=token)
                 break
             except telegram.error.TimedOut as error:
-                print("At telegram.Bot():", error)
+                print(error)
+                print("    at telegram.Bot()")
+                print("    at TelegramBot(token, chat_ids)")
                 time.sleep(1)
 
         # Set the telegram bot and chat id set
         self.bot = bot
-        self.chat_ids = self.get_chat_ids()
+        self.chat_ids = chat_ids | self.get_chat_ids()
 
     # Get the present list of non-duplicate recipients
     # - pure function
@@ -51,7 +53,9 @@ class TelegramBot:
                 updates = self.bot.get_updates(timeout=10)
                 break
             except telegram.error.NetworkError as error:
-                print("At telegram_bot.get_updates():", error)
+                print(error)
+                print("    at bot.get_updates()")
+                print("    at get_chat_ids()")
                 time.sleep(1)
 
         # Exclude duplicate chat id
@@ -72,21 +76,22 @@ class TelegramBot:
                     message_sent = True
                     break
                 except telegram.error.NetworkError as error:
-                    print("At telegram_bot.send_message():", error)
+                    print(error)
+                    print("    at telegram_bot.send_message()")
                     time.sleep(1)
 
         if message_sent:
             print("The message has sent to", self.chat_ids, message[: message.find("\n")], "...")
         else:
-            print("Failed to send message because there is no recipient")
+            print("Failed to send message because there was no recipient")
 
         return message_sent
 
 
 class Chrome(metaclass=ABCMeta):
-    def __init__(self, token, wait_sec=10):
+    def __init__(self, token, chat_ids, wait_sec=10):
         # Set the telegram bot
-        self.telegram_bot = TelegramBot(token)
+        self.telegram_bot = TelegramBot(token, chat_ids)
         print("Connected to the telegram bot.")
 
         # Setting chrome options
@@ -165,7 +170,7 @@ class Chrome(metaclass=ABCMeta):
 
             # If there isn't new post, continue
             if latest_post_title == old_post_title:
-                print("The latest post title:", latest_post_title, time.strftime("%c", time.localtime(time.time())))
+                print("The latest title:", latest_post_title[:60], time.ctime())
                 time.sleep(period)
                 continue
 
@@ -181,6 +186,8 @@ class Chrome(metaclass=ABCMeta):
             old_post_title = latest_post_title
             time.sleep(period)
 
+    # Must return a list of the bs4 elements
+    # - return type: bs4.element.ResultSet
     def must_get_bs4_elements(self, css_selector):
         while True:
             try:
@@ -193,6 +200,8 @@ class Chrome(metaclass=ABCMeta):
                 print("    at must_get_bs4_elements()")
             time.sleep(1)
 
+    # Return a list of the bs4 elements if exists, else return a empty list
+    # - return type: bs4.element.ResultSet
     def get_bs4_elements(self, css_selector, wait_sec=10):
         for _ in range(wait_sec):
             try:
@@ -207,10 +216,12 @@ class Chrome(metaclass=ABCMeta):
 
         return elements
 
+    # Return the bs4 element if exists, else return None
+    # - return type: bs4.element.Tag or None
     def get_bs4_element(self, css_selector, wait_sec=10):
         for _ in range(wait_sec):
             try:
-                html = self.driver.page_source.replace("<br>", "\n")
+                html = self.driver.page_source.replace("<br>", "\n")  # Read <br> tag as new line
                 element = BeautifulSoup(html, "html.parser").select_one(css_selector)
                 if element:
                     return element
@@ -231,4 +242,3 @@ class Chrome(metaclass=ABCMeta):
     @abstractmethod
     def get_message_from(self, post_link, post_title):
         pass
-
