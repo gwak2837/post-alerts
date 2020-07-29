@@ -8,7 +8,7 @@
 
 #### 1. 파일 생성
 
-이 폴더에 `.env` 파일을 생성하고 텔레그램 봇 토큰, 채팅 ID 목록을 저장한다. 예시는 아래와 같다.
+`fenhan.py` 파일과 동일한 경로에 `.env` 파일을 생성한다. 그리고 `.env` 파일에 자신의 텔레그램 봇 토큰, 텔레그램 채팅 ID 목록을 입력한다. 텔레그램 채팅 ID 목록은 없어도 된다. 예시는 아래와 같다.
 
 ```
 TELEGRAM_BOT_TOKEN = 텔레그램 봇 토큰
@@ -16,6 +16,9 @@ CHAT_IDs = [채팅ID, ...]
 ```
 
 #### 2. 실행
-```shell
-> python fenhan.py
+
+```zsh
+(fenhan) > python fenhan.py
 ```
+
+fenhan 폴더로 이동해 `fenhan.py` 파일을 파이썬3으로 실행한다.

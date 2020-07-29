@@ -8,17 +8,19 @@
 
 #### 1. 파일 생성
 
-`coolenjoy-post-alerts.py` 파일과 동일한 경로에 `.env` 파일을 생성한다.
-그리고 텍스트 파일 각 줄마다 자신의 쿨앤조이 아이디와 패스워드, 텔레그램 봇 토큰을 입력한다. 예시는 아래와 같다.
+`coolenjoy.py` 파일과 동일한 경로에 `.env` 파일을 생성한다. 그리고 `.env` 파일에 자신의 쿨엔조이 아이디와 패스워드, 텔레그램 봇 토큰, 텔레그램 채팅 ID 목록을 입력한다. 쿨엔조이 아이디와 패스워드, 텔레그램 채팅 ID 목록은 없어도 된다. 예시는 아래와 같다.
 
 ```
-아이디
-패스워드
-텔레그램 봇 토큰
+ID = 아이디
+PW = 비밀번호
+TELEGRAM_BOT_TOKEN = 텔레그램 봇 토큰
+CHAT_IDs = [채팅ID, ...]
 ```
 
 #### 2. 실행
 
-```shell
-> python coolenjoy-post-alerts.py
+```zsh
+(coolenjoy) > python coolenjoy.py
 ```
+
+coolenjoy 폴더로 이동해 `coolenjoy.py` 파일을 파이썬3으로 실행한다.
