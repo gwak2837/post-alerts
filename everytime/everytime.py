@@ -19,7 +19,7 @@ class EverytimeChrome(Chrome):
             if not self.go_to_page(COMMUNITY_URL):
                 time.sleep(10)
                 if not self.login():
-                    raise RuntimeError  ##### delete this instance and reinitialize
+                    raise RuntimeError("Chrome tab crashed")  ##### delete this instance and reinitialize
                 continue
 
             # Click the '알바.과외' category
@@ -101,6 +101,7 @@ if __name__ == "__main__":
             # Scrape the new post after logging in
             everytime_chrome.scrape_posts(everytime1_bot_token, chat_ids)
 
-        except RuntimeError:
+        except RuntimeError as error:
+            print(error.args)
             everytime_chrome.driver.quit()
             time.sleep(10)
