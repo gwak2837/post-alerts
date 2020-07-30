@@ -22,11 +22,17 @@ class CoolenjoyChrome(Chrome):
             post_links = self.get_bs4_elements(POST_LINKS_CSS_SELECTOR)
             post_titles = self.get_bs4_elements(POST_TITLES_CSS_SELECTOR)
 
+            post_titles_string = []
+            for post_title in post_titles:
+                for bs4_element in post_title.contents:
+                    if bs4_element.name not in ["span"] and bs4_element.string.strip() != "":
+                        post_titles_string.append(bs4_element.string.strip())
+
             # Must get all post links and titles in the 1st page
             if post_links and post_titles:
                 return [
-                    (post_link["href"], post_title.get_text().strip())
-                    for post_link, post_title in zip(post_links, post_titles)
+                    (post_link["href"], post_title)  ##### 댓글 수 제외
+                    for post_link, post_title in zip(post_links, post_titles_string)
                 ]
 
     def get_message_from(self, post_link, post_title):
@@ -74,6 +80,7 @@ chat_ids = set(json.loads(os.getenv("CHAT_IDs")))
 # Initialize constants
 COMMUNITY_URL = "http://www.coolenjoy.net/bbs/jirum"
 "#fboardlist > div > table > tbody > tr:nth-child(3)"
+POST_TITLES_XPATH = '//*[@id="fboardlist"]/div/table/tbody/tr[3]/td[2]/a/text()'
 POST_LINKS_CSS_SELECTOR = "#fboardlist > div > table > tbody > tr:not(.bo_notice) > td.td_subject > a"
 POST_TITLES_CSS_SELECTOR = "#fboardlist > div > table > tbody > tr:not(.bo_notice) > td.td_subject > a"
 DATE_CSS_SELECTOR = "#bo_v_info > strong:nth-child(4)"
