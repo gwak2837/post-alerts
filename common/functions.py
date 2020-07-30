@@ -6,26 +6,6 @@ from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
 import telegram
 
-"""
-class SetQueue:
-    def __init__(self, maxsize):
-        self.items_queue = queue.Queue(maxsize)
-        self.items_set = set()
-
-    # if queue is full, pop the oldest item and put the new item
-    def put(self, item):
-        if self.items_queue.full():
-            item = self.items_queue.get_nowait()
-            self.items_set.remove(item)
-        self.items_queue.put_nowait(item)
-        self.items_set.add(item)
-
-    def have(self, item):
-        return item in self.items_set
-
-    def print(self):
-        print(self.items_set)
-"""
 
 # List of front-in, back-out, kind of queue
 class ListFIBO:
@@ -171,13 +151,13 @@ class Chrome(metaclass=ABCMeta):
         old_post_link, old_post_title = posts[0]
 
         # Initialize sent_posts
-        sent_posts = ListFIBO([post_title for _, post_title in posts], len(posts) * 2)
+        sent_posts = ListFIBO([post_title for _, post_title in posts], len(posts))
 
         # Send a message with the latest post details
-        if not telegram_bot.send_message(self.get_message_from(old_post_link, old_post_title)):
+        if telegram_bot.send_message(self.get_message_from(old_post_link, old_post_title)):
+            sent_posts.put(old_post_title)
+        else:
             return
-
-        sent_posts.put(old_post_title)
 
         while True:
             # Get the posts in the 1st page
@@ -195,12 +175,14 @@ class Chrome(metaclass=ABCMeta):
             if telegram_bot.send_message(self.get_message_from(latest_post_link, latest_post_title)):
                 sent_posts.put(latest_post_title)
 
+            # If the number of new post is more than 1, send messages with the post details
             for post_link, post_title in posts[1:]:
                 if sent_posts.have(post_title):  ##### break, continue 중 어느 것이 더 낫나?
                     break
                 if telegram_bot.send_message(self.get_message_from(post_link, post_title)):
                     sent_posts.put(post_title)
 
+            # Update the old_post_title
             old_post_title = latest_post_title
             time.sleep(period)
 
