@@ -3,7 +3,7 @@ import sys
 import time
 import json
 from dotenv import load_dotenv
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import WebDriverException
 
 
 # Add modules in common/functions.py - will be deprecated
@@ -25,7 +25,7 @@ class EverytimeChrome(Chrome):
             # Click the '알바.과외' category
             try:
                 self.driver.find_element_by_css_selector(CATEGORY_CSS_SELECTOR).click()
-            except NoSuchElementException as error:
+            except WebDriverException as error:
                 print(error, end="")
                 print("    at get_posts()")
                 continue
