@@ -3,7 +3,7 @@ import sys
 import time
 import json
 from dotenv import load_dotenv
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import NoSuchElementException
 
 # Add modules in common/functions.py - will be deprecated
 sys.path.append(os.path.dirname(os.getcwd()))
@@ -13,35 +13,33 @@ from common.functions import Chrome
 
 class CAUinChrome(Chrome):
     def get_posts(self):
-        # Go to the community page
         while True:
-            try:
-                self.driver.get(COMMUNITY_URL)
-                break
-            except WebDriverException as error:
-                print(error, end="")
-                print("    at get_posts()")
-                self.login()
+            # Go to the community page
+            if not self.go_to_page(COMMUNITY_URL):
                 time.sleep(10)
+                if not self.login():
+                    raise RuntimeError  ##### delete this instance and reinitialize
+                continue
 
-        # Get all post links and titles
-        post_links = self.must_get_bs4_elements(POST_LINKS_CSS_SELECTOR)
-        post_titles = self.must_get_bs4_elements(POST_TITLES_CSS_SELECTOR)
+            # Get all post links and titles in the 1st page
+            post_links = self.get_bs4_elements(POST_LINKS_CSS_SELECTOR)
+            post_titles = self.get_bs4_elements(POST_TITLES_CSS_SELECTOR)
 
-        return [(post_link["href"], post_title.text.strip()) for post_link, post_title in zip(post_links, post_titles)]
+            # Must get all post links and titles in the 1st page
+            if post_links and post_titles:
+                return [
+                    (post_link["href"], post_title.get_text().strip())
+                    for post_link, post_title in zip(post_links, post_titles)
+                ]
 
     def get_message_from(self, post_link, post_title):
         # Go to the post details page
-        try:
-            self.driver.get(BASE_URL + post_link)
-        except WebDriverException as error:
-            print(error, end="")
-            print("    at get_message_from()")
-            return error
+        if not self.go_to_page(BASE_URL + post_link):
+            return "Fail to get a message with post details"
 
         # Get the date of writing
         date = self.get_bs4_element(DATE_CSS_SELECTOR)
-        date = date.string if date else "None"
+        date = date.get_text() if date else "None"
 
         # Get the post content
         content = self.get_bs4_element(CONTENT_CSS_SELECTOR)
@@ -50,17 +48,19 @@ class CAUinChrome(Chrome):
         return "<제목> " + post_title + "\n\n<게시일> " + date + "\n\n<내용>\n" + content
 
     def login(self):
+        print("Login...")
+        if not self.go_to_page(COMMUNITY_URL):
+            print("Login failed.")
+            return False
         try:
-            self.driver.get(COMMUNITY_URL)
-        except WebDriverException as error:
-            print(error, end="")
-            print("    at login()")
-
-        self.driver.find_element_by_name("userID").send_keys(user_id)
-        self.driver.find_element_by_name("password").send_keys(password)
-        self.driver.find_element_by_class_name("loginbtn").click()
-        self.driver.find_element_by_id("content")  # Wait for login to complete
-        print("Login success.")
+            self.driver.find_element_by_name("userID").send_keys(user_id)
+            self.driver.find_element_by_name("password").send_keys(password)
+            self.driver.find_element_by_class_name("loginbtn").click()
+            self.driver.find_element_by_id("content")  # Wait for login to complete
+            return True
+        except NoSuchElementException:
+            print("Login failed.")
+            return False
 
 
 # Get user ID, password, bot token from '.env'
@@ -81,14 +81,17 @@ COMMENTS_CSS_SELECTOR = ""
 
 
 if __name__ == "__main__":
-    # Initialize a chrome driver for CAUin
-    cauin_chrome = CAUinChrome(cauin_bot_token, chat_ids)
+    while True:
+        try:
+            # Initialize a chrome driver for CAUin
+            cauin_chrome = CAUinChrome()
 
-    # Try to login
-    cauin_chrome.login()
+            # Try to login
+            cauin_chrome.login()
 
-    # Scrape the new post
-    cauin_chrome.scrape_posts()
+            # Scrape the new post
+            cauin_chrome.scrape_posts(cauin_bot_token, chat_ids)
 
-    # Exit the chrome when ctrl+c pressed
-    cauin_chrome.driver.quit()
+        except RuntimeError:
+            cauin_chrome.driver.quit()
+            time.sleep(10)

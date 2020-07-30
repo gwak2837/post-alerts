@@ -13,30 +13,26 @@ from common.functions import Chrome
 
 class FenHanChrome(Chrome):
     def get_posts(self):
-        # Go to the community page
         while True:
-            try:
-                self.driver.get(COMMUNITY_URL)
-                break
-            except WebDriverException as error:
-                print(error)
-                print("    at get_posts()")
-                time.sleep(10)
+            # Go to the community page
+            if not self.go_to_page(COMMUNITY_URL):
+                continue
 
-        # Get all post links and titles
-        post_links = self.must_get_bs4_elements(POST_LINKS_CSS_SELECTOR)
-        post_titles = self.must_get_bs4_elements(POST_TITLES_CSS_SELECTOR)
+            # Get all post links and titles in the 1st page
+            post_links = self.get_bs4_elements(POST_LINKS_CSS_SELECTOR)
+            post_titles = self.get_bs4_elements(POST_TITLES_CSS_SELECTOR)
 
-        return [(post_link["href"], post_title.text.strip()) for post_link, post_title in zip(post_links, post_titles)]
+            # Must get all post links and titles in the 1st page
+            if post_links and post_titles:
+                return [
+                    (post_link["href"], post_title.get_text().strip())
+                    for post_link, post_title in zip(post_links, post_titles)
+                ]
 
     def get_message_from(self, post_link, post_title):
         # Go to the post details page
-        try:
-            self.driver.get(post_link)
-        except WebDriverException as error:
-            print(error)
-            print("    at get_message_from()")
-            return error
+        if not self.go_to_page(post_link):
+            return "Fail to get a message with post details"
 
         # Get the date of writing
         date = self.get_bs4_element(DATE_CSS_SELECTOR)
@@ -45,7 +41,7 @@ class FenHanChrome(Chrome):
         # Get the summary of the post
         header_ths = self.get_bs4_elements(HEADER_TH_CSS_SELECTOR)
         header_tds = self.get_bs4_elements(HEADER_TD_CSS_SELECTOR)
-        header = "\n".join([th.string + td.string for th, td in zip(header_ths, header_tds)])
+        header = "\n".join([th.get_text() + td.get_text() for th, td in zip(header_ths, header_tds)])
         header = header if header else "None"
 
         # Get the post content
@@ -84,10 +80,10 @@ COMMENTS_CSS_SELECTOR = ""
 
 if __name__ == "__main__":
     # Initialize a chrome driver for FenHan
-    fenhan_chrome = FenHanChrome(fenhan_bot_token, chat_ids)
+    fenhan_chrome = FenHanChrome()
 
     # Scrape the new post
-    fenhan_chrome.scrape_posts()
+    fenhan_chrome.scrape_posts(fenhan_bot_token, chat_ids)
 
     # Exit the chrome when ctrl+c pressed
     fenhan_chrome.driver.quit()
