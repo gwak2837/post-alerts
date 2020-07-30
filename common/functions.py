@@ -7,19 +7,19 @@ from selenium.common.exceptions import WebDriverException
 import telegram
 
 
-# List of front-in, back-out, kind of queue
+# List of FIBO(Front-In, Back-Out), kind of queue
 class ListFIBO:
     def __init__(self, items, maxsize):
         self.maxsize = maxsize
-        self.list_FIBO = list(items[:maxsize])
+        self.list_fibo = list(items[:maxsize])
 
     def put(self, item):
-        if len(self.list_FIBO) == self.maxsize:
-            self.list_FIBO.pop()
-        self.list_FIBO.insert(0, item)
+        if len(self.list_fibo) == self.maxsize:
+            self.list_fibo.pop()
+        self.list_fibo.insert(0, item)
 
     def have(self, item):
-        return item in self.list_FIBO
+        return item in self.list_fibo
 
 
 class TelegramBot:
