@@ -98,3 +98,10 @@ ID로 검색하는 것이 제일 빠르고 xpath로 검색하는 것이 가장 �
 특정 웹 엘리먼트 검색은 `BeautifulSoup`가 `Selenium`보다 빠르다.
 
 하지만 엘리먼트 클릭이나 키 전송, 페이지 이동이 필요할 땐 어쩔 수 없이 `Selenium`을 사용한다.
+
+### 셀레늄 alert 창 처리
+
+```py
+# alert = driver.switch_to_alert().accept() - deprecated
+alert = driver.switch_to.alert.accept()
+```

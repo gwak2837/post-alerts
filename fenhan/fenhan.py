@@ -3,7 +3,6 @@ import sys
 import time
 import json
 from dotenv import load_dotenv
-from selenium.common.exceptions import WebDriverException
 
 # Add modules in common/functions.py - will be deprecated
 sys.path.append(os.path.dirname(os.getcwd()))

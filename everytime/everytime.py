@@ -66,7 +66,7 @@ class EverytimeChrome(Chrome):
             self.driver.find_element_by_name("password").send_keys(password + "\n")
             self.driver.find_element_by_id("writeArticleButton")  # Wait for login to complete
             return True
-        except NoSuchElementException:
+        except WebDriverException:  # Session deleted due to tab crash
             print("Login failed.")
             return False
 
