@@ -4,6 +4,7 @@ import time
 import json
 from dotenv import load_dotenv
 from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoAlertPresentException
 
 # Add modules in common/functions.py - will be deprecated
 sys.path.append(os.path.dirname(os.getcwd()))
@@ -16,9 +17,6 @@ class CAUinChrome(Chrome):
         while True:
             # Go to the community page
             if not self.go_to_page(COMMUNITY_URL):
-                time.sleep(10)
-                if not self.login():
-                    raise RuntimeError  ##### delete this instance and reinitialize
                 continue
 
             # Get all post links and titles in the 1st page
@@ -33,9 +31,18 @@ class CAUinChrome(Chrome):
                 ]
 
     def get_message_from(self, post_link, post_title):
-        # Go to the post details page
-        if not self.go_to_page(BASE_URL + post_link):
-            return "Fail to get a message with post details"
+        for _ in range(10):
+            # Go to the post details page
+            if not self.go_to_page(BASE_URL + post_link):
+                return "Fail to get a message with post details"
+
+            # Handle the login alert
+            try:
+                self.driver.switch_to.alert.accept()
+                if not self.login():
+                    raise RuntimeError
+            except NoAlertPresentException:
+                break
 
         # Get the date of writing
         date = self.get_bs4_element(DATE_CSS_SELECTOR)
