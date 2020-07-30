@@ -3,7 +3,6 @@ import sys
 import time
 import json
 from dotenv import load_dotenv
-from selenium.common.exceptions import WebDriverException
 from selenium.common.exceptions import NoSuchElementException
 
 
@@ -15,35 +14,41 @@ from common.functions import Chrome
 
 class EverytimeChrome(Chrome):
     def get_posts(self):
-        # Go to the community page and select the '알바.과외' category
         while True:
+            # Go to the community page
+            if not self.go_to_page(COMMUNITY_URL):
+                time.sleep(10)
+                if not self.login():
+                    raise RuntimeError  ##### delete this instance and reinitialize
+                continue
+
+            # Click the '알바.과외' category
             try:
-                self.driver.get(COMMUNITY_URL)
                 self.driver.find_element_by_css_selector(CATEGORY_CSS_SELECTOR).click()
-                break
-            except (WebDriverException, NoSuchElementException) as error:
+            except NoSuchElementException as error:
                 print(error, end="")
                 print("    at get_posts()")
-                time.sleep(10)
+                continue
 
-        # Get all post links and titles
-        post_links = self.must_get_bs4_elements(POST_LINKS_CSS_SELECTOR)
-        post_titles = self.must_get_bs4_elements(POST_TITLES_CSS_SELECTOR)
+            # Get all post links and titles in the 1st page
+            post_links = self.get_bs4_elements(POST_LINKS_CSS_SELECTOR)
+            post_titles = self.get_bs4_elements(POST_TITLES_CSS_SELECTOR)
 
-        return [(post_link["href"], post_title.text.strip()) for post_link, post_title in zip(post_links, post_titles)]
+            # Must get all post links and titles in the 1st page
+            if post_links and post_titles:
+                return [
+                    (post_link["href"], post_title.get_text().strip())
+                    for post_link, post_title in zip(post_links, post_titles)
+                ]
 
     def get_message_from(self, post_link, post_title):
         # Go to the post details page
-        try:
-            self.driver.get(BASE_URL + post_link)
-        except WebDriverException as error:
-            print(error, end="")
-            print("    at get_message_from()")
-            return error
+        if not self.go_to_page(BASE_URL + post_link):
+            return "Fail to get a message with post details"
 
         # Get the date of writing
         date = self.get_bs4_element(DATE_CSS_SELECTOR)
-        date = date.string if date else "None"
+        date = date.get_text() if date else "None"
 
         # Get the post content
         content = self.get_bs4_element(CONTENT_CSS_SELECTOR)
@@ -52,17 +57,18 @@ class EverytimeChrome(Chrome):
         return "<제목> " + post_title + "\n\n<게시일> " + date + "\n\n<내용>\n" + content
 
     def login(self):
-        # Try to login
+        print("Login...")
+        if not self.go_to_page(LOGIN_URL):
+            print("Login failed.")
+            return False
         try:
-            self.driver.get(LOGIN_URL)
-        except WebDriverException as error:
-            print(error, end="")
-            print("    at login()")
-
-        everytime_chrome.driver.find_element_by_name("userid").send_keys(user_id)
-        everytime_chrome.driver.find_element_by_name("password").send_keys(password + "\n")
-        everytime_chrome.driver.find_element_by_id("writeArticleButton")  # Wait for login to complete
-        print("Login success.")
+            self.driver.find_element_by_name("userid").send_keys(user_id)
+            self.driver.find_element_by_name("password").send_keys(password + "\n")
+            self.driver.find_element_by_id("writeArticleButton")  # Wait for login to complete
+            return True
+        except NoSuchElementException:
+            print("Login failed.")
+            return False
 
 
 # Get user ID, password, bot token from '.env'
@@ -84,14 +90,17 @@ CONTENT_CSS_SELECTOR = "#container > div.wrap.articles > article > a > p"
 COMMENTS_CSS_SELECTOR = ""
 
 if __name__ == "__main__":
-    # Initialize a chrome driver for Everytie
-    everytime_chrome = EverytimeChrome(everytime1_bot_token, chat_ids)
+    while True:
+        try:
+            # Initialize a chrome driver for Everytie
+            everytime_chrome = EverytimeChrome()
 
-    # Try to login
-    everytime_chrome.login()
+            # Try to login
+            everytime_chrome.login()
 
-    # Scrape the new post after logging in
-    everytime_chrome.scrape_posts()
+            # Scrape the new post after logging in
+            everytime_chrome.scrape_posts(everytime1_bot_token, chat_ids)
 
-    # Exit the chrome when ctrl+c pressed
-    everytime_chrome.driver.quit()
+        except RuntimeError:
+            everytime_chrome.driver.quit()
+            time.sleep(10)

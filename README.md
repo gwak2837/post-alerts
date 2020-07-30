@@ -78,11 +78,15 @@ https://saurabh-kumar.com/python-dotenv/
 
 ## 개발 노트
 
-### 예외
+### 셀레늄 예외
 
 #### `StaleElementReferenceException`
 
 특정 웹 엘리먼트가 변경됐는데 바뀌기 전의 웹 엘리먼트를 참조했을 때 발생한다. 
+
+#### `NoSuchElementException`
+
+현재 페이지에서 특정 웹 엘리먼트를 `Timedout` 시간 내에 찾지 못하면 발생한다.
 
 ### Element search perfomance 
 ``` bash
