@@ -1,5 +1,4 @@
 import time
-import queue
 from abc import ABCMeta
 from abc import abstractmethod
 from bs4 import BeautifulSoup
@@ -7,7 +6,7 @@ from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
 import telegram
 
-
+"""
 class SetQueue:
     def __init__(self, maxsize):
         self.items_queue = queue.Queue(maxsize)
@@ -16,7 +15,8 @@ class SetQueue:
     # if queue is full, pop the oldest item and put the new item
     def put(self, item):
         if self.items_queue.full():
-            self.items_set.remove(self.items_queue.get_nowait())
+            item = self.items_queue.get_nowait()
+            self.items_set.remove(item)
         self.items_queue.put_nowait(item)
         self.items_set.add(item)
 
@@ -25,6 +25,21 @@ class SetQueue:
 
     def print(self):
         print(self.items_set)
+"""
+
+# List of front-in, back-out, kind of queue
+class ListFIBO:
+    def __init__(self, items, maxsize):
+        self.maxsize = maxsize
+        self.list_FIBO = list(items[:maxsize])
+
+    def put(self, item):
+        if len(self.list_FIBO) == self.maxsize:
+            self.list_FIBO.pop()
+        self.list_FIBO.insert(0, item)
+
+    def have(self, item):
+        return item in self.list_FIBO
 
 
 class TelegramBot:
@@ -36,8 +51,7 @@ class TelegramBot:
                 break
             except telegram.error.TimedOut as error:
                 print(error)
-                print("    at telegram.Bot()")
-                print("    at TelegramBot(token, chat_ids)")
+                print("    at TelegramBot()")
                 time.sleep(1)
 
         # Set the telegram bot and chat id set
@@ -54,7 +68,6 @@ class TelegramBot:
                 break
             except telegram.error.NetworkError as error:
                 print(error)
-                print("    at bot.get_updates()")
                 print("    at get_chat_ids()")
                 time.sleep(1)
 
@@ -77,11 +90,11 @@ class TelegramBot:
                     break
                 except telegram.error.NetworkError as error:
                     print(error)
-                    print("    at telegram_bot.send_message()")
+                    print("    at send_message()")
                     time.sleep(1)
 
         if message_sent:
-            print("The message has sent to", self.chat_ids, message[: message.find("\n")], "...")
+            print("The message has sent to", self.chat_ids, message.replace("\n", " ")[:35], "...")
         else:
             print("Failed to send message because there was no recipient")
 
@@ -89,11 +102,7 @@ class TelegramBot:
 
 
 class Chrome(metaclass=ABCMeta):
-    def __init__(self, token, chat_ids, wait_sec=10):
-        # Set the telegram bot
-        print("Connect to the telegram bot...")
-        self.telegram_bot = TelegramBot(token, chat_ids)
-
+    def __init__(self, wait_sec=10):
         # Setting chrome options
         print("Initialize the chrome webdriver...")
         options = webdriver.ChromeOptions()
@@ -137,7 +146,7 @@ class Chrome(metaclass=ABCMeta):
         }
         options.add_experimental_option("prefs", prefs)
 
-        # Create chrome driver
+        # Initialize chrome driver
         self.driver = webdriver.Chrome("../chromedriver", options=options)
         self.driver.implicitly_wait(wait_sec)
         self.driver.execute_script(
@@ -151,55 +160,49 @@ class Chrome(metaclass=ABCMeta):
         )
 
     # Scrape the new post
-    def scrape_posts(self, period=10, queue_size=0):
+    def scrape_posts(self, token, chat_ids, period=10):
+        # Connect to the telegram bot
+        print("Connect to the telegram bot...")
+        telegram_bot = TelegramBot(token, chat_ids)
+
+        # Get the posts in the 1st page
         print("Get the latest posts...")
         posts = self.get_posts()
         old_post_link, old_post_title = posts[0]
 
-        if not self.telegram_bot.send_message(self.get_message_from(old_post_link, old_post_title)):
+        # Initialize sent_posts
+        sent_posts = ListFIBO([post_title for _, post_title in posts], len(posts) * 2)
+
+        # Send a message with the latest post details
+        if not telegram_bot.send_message(self.get_message_from(old_post_link, old_post_title)):
             return
 
-        # Initialize sent_posts
-        sent_posts = SetQueue(len(posts) if queue_size == 0 else queue_size)
-        posts.reverse()
-        for _, post_title in posts:
-            sent_posts.put(post_title)
+        sent_posts.put(old_post_title)
 
         while True:
+            # Get the posts in the 1st page
             posts = self.get_posts()
-            latest_post_title = posts[0][1]
+            latest_post_link, latest_post_title = posts[0]
 
             # If there isn't new post, continue
             if latest_post_title == old_post_title:
-                print("The latest title:", latest_post_title[:60], time.ctime())
+                print("The latest title:", latest_post_title[:40], time.ctime())
                 time.sleep(period)
                 continue
 
-            # If there is a new post
+            # If there is a new post, send a message with the latest post details
             print("A new post has been posted.")
-            for post_link, post_title in posts:
-                if sent_posts.have(post_title):
-                    break
+            if telegram_bot.send_message(self.get_message_from(latest_post_link, latest_post_title)):
+                sent_posts.put(latest_post_title)
 
-                if self.telegram_bot.send_message(self.get_message_from(post_link, post_title)):
+            for post_link, post_title in posts[1:]:
+                if sent_posts.have(post_title):  ##### break, continue 중 어느 것이 더 낫나?
+                    break
+                if telegram_bot.send_message(self.get_message_from(post_link, post_title)):
                     sent_posts.put(post_title)
 
             old_post_title = latest_post_title
             time.sleep(period)
-
-    # Must return a list of the bs4 elements
-    # - return type: bs4.element.ResultSet
-    def must_get_bs4_elements(self, css_selector):
-        while True:
-            try:
-                elements = BeautifulSoup(self.driver.page_source, "html.parser").select(css_selector)
-                if elements:
-                    return elements
-            except WebDriverException as error:
-                print(error)
-                print("    at BeautifulSoup()")
-                print("    at must_get_bs4_elements()")
-            time.sleep(1)
 
     # Return a list of the bs4 elements if exists, else return a empty list
     # - return type: bs4.element.ResultSet
@@ -211,10 +214,10 @@ class Chrome(metaclass=ABCMeta):
                     return elements
             except WebDriverException as error:
                 print(error)
-                print("    at BeautifulSoup()")
                 print("    at get_bs4_elements()")
             time.sleep(1)
 
+        print("No elements")
         return elements
 
     # Return the bs4 element if exists, else return None
@@ -228,11 +231,21 @@ class Chrome(metaclass=ABCMeta):
                     return element
             except WebDriverException as error:
                 print(error)
-                print("    at BeautifulSoup()")
                 print("    at get_bs4_element()")
             time.sleep(1)
 
+        print("No element")
         return element
+
+    # Request GET to given url
+    def go_to_page(self, url):
+        try:
+            self.driver.get(url)
+            return True
+        except WebDriverException as error:
+            print(error, end="")
+            print("    at go_to_page()")
+            return False
 
     # Go to the community page, and return a list of [post_link, post_title]
     @abstractmethod
