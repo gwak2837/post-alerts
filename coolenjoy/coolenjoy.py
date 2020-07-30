@@ -1,106 +1,98 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from bs4 import BeautifulSoup
-import telegram
+import os
+import sys
 import time
+import json
+from dotenv import load_dotenv
+from selenium.common.exceptions import NoSuchElementException
+
+# Add modules in common/functions.py - will be deprecated
+sys.path.append(os.path.dirname(os.getcwd()))
+
+from common.functions import Chrome
 
 
-def get_html(url):
-    driver.get(url)
-    return BeautifulSoup(driver.page_source, "html.parser")
+class CoolenjoyChrome(Chrome):
+    def get_posts(self):
+        while True:
+            # Go to the community page
+            if not self.go_to_page(COMMUNITY_URL):
+                continue
+
+            # Get all post links and titles in the 1st page
+            post_links = self.get_bs4_elements(POST_LINKS_CSS_SELECTOR)
+            post_titles = self.get_bs4_elements(POST_TITLES_CSS_SELECTOR)
+
+            # Must get all post links and titles in the 1st page
+            if post_links and post_titles:
+                return [
+                    (post_link["href"], post_title.get_text().strip())
+                    for post_link, post_title in zip(post_links, post_titles)
+                ]
+
+    def get_message_from(self, post_link, post_title):
+        # Go to the post details page
+        if not self.go_to_page(post_link):
+            return "Fail to get a message with post details"
+
+        # Get the date of writing
+        date_element = self.get_bs4_element(DATE_CSS_SELECTOR)
+        date = date_element.get_text() if date_element else "None"
+
+        # Get the post content
+        content_element = self.get_bs4_element(CONTENT_CSS_SELECTOR)
+        content = content_element.get_text() if content_element else "None"
+
+        # Get the link of the product
+        links_element = self.get_bs4_elements(LINKS_CSS_SELECTOR)
+        links_buffer = [link_element["href"] for link_element in links_element]
+        links = "\n".join(links_buffer)
+
+        return "<제목> " + post_title + "\n\n<게시일> " + date + "\n\n<내용>\n" + content + "\n\n<제품 링크>\n" + links
+
+    def login(self):
+        print("Login...")
+        if not self.go_to_page(COMMUNITY_URL):
+            print("Login failed.")
+            return False
+        try:
+            self.driver.find_element_by_name("mb_id").send_keys(user_id)
+            self.driver.find_element_by_name("mb_password").send_keys(password + "\n")
+            self.driver.find_element_by_id("fboardlist")  # Wait for login to complete
+            return True
+        except NoSuchElementException:
+            print("Login failed.")
+            return False
 
 
-# Get ID and password from 'info.txt'
-with open(".env", "r") as f:
-    userID = f.readline()
-    password = f.readline()
-    telegram_bot_token = f.readline()
+# Get user ID, password, bot token from '.env'
+load_dotenv()
+user_id = os.getenv("ID")
+password = os.getenv("PW")
+coolenjoy1_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+chat_ids = set(json.loads(os.getenv("CHAT_IDs")))
 
-# Connect to the telegram bot
-bot = telegram.Bot(token=telegram_bot_token)
-chat_id = bot.getUpdates()[-1].message.chat.id
-
-# Setting chrome options
-options = webdriver.ChromeOptions()
-options.add_argument("headless")
-options.add_argument("disable-gpu")
-options.add_argument("window-size=1920x1080")
-options.add_argument(
-    "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36"
-)
-options.add_argument("lang=ko_KR")
-options.add_argument("log-level=2")
-
-# Create chrome driver
-driver = webdriver.Chrome("../chromedriver", options=options)
-driver.implicitly_wait(10)
-driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: function() {return[1, 2, 3, 4, 5]}})")
-driver.execute_script("Object.defineProperty(navigator, 'languages', {get: function() {return ['ko-KR', 'ko']}})")
-driver.execute_script(
-    "const getParameter = WebGLRenderingContext.getParameter;WebGLRenderingContext.prototype.getParameter = function(parameter) {if (parameter === 37445) {return 'NVIDIA Corporation'} if (parameter === 37446) {return 'NVIDIA GeForce GTX 980 Ti OpenGL Engine';}return getParameter(parameter);};"
-)
+# Initialize constants
+COMMUNITY_URL = "http://www.coolenjoy.net/bbs/jirum"
+"#fboardlist > div > table > tbody > tr:nth-child(3)"
+POST_LINKS_CSS_SELECTOR = "#fboardlist > div > table > tbody > tr:not(.bo_notice) > td.td_subject > a"
+POST_TITLES_CSS_SELECTOR = "#fboardlist > div > table > tbody > tr:not(.bo_notice) > td.td_subject > a"
+DATE_CSS_SELECTOR = "#bo_v_info > strong:nth-child(4)"
+CONTENT_CSS_SELECTOR = "#bo_v_con"
+LINKS_CSS_SELECTOR = "#bo_v_link > ul > li > a"
+COMMENTS_CSS_SELECTOR = ""
 
 
-# Try to login
-print("Login...")
-driver.get("http://www.coolenjoy.net/bbs/jirum")
-driver.find_element_by_name("mb_id").send_keys(userID)
-driver.find_element_by_name("mb_password").send_keys(password)
+if __name__ == "__main__":
+    # Initialize a chrome driver for CAUin
+    coolenjoy_chrome = CoolenjoyChrome()
 
-# Get the latest title of post
-print("Get the latest title of post...")
-latest_title_css_selector = "#fboardlist > div > table > tbody > tr:nth-child(3) > td.td_subject > a"
-while True:
-    root_page = BeautifulSoup(driver.page_source, "html.parser")
-    try:
-        old_title = root_page.select(latest_title_css_selector)[0].text.strip()
-        break
-    except IndexError as e:
-        print(e)
-        time.sleep(3)
+    """
+    # Try to login
+    coolenjoy_chrome.login()
+    """
 
-# Scrape a new post
-scrapping_period = 10
-while True:
-    root_page = get_html("http://www.coolenjoy.net/bbs/jirum")
-    latest_title = root_page.select(latest_title_css_selector)[0].text.strip()
+    # Scrape the new post
+    coolenjoy_chrome.scrape_posts(coolenjoy1_bot_token, chat_ids)
 
-    # If there is no new post, continue
-    if latest_title == old_title:
-        print("Latest title:", latest_title, time.strftime("%c", time.localtime(time.time())))
-        time.sleep(scrapping_period)
-        continue
-
-    # If there is a new post
-    for i in range(3, 5):
-        ith_title = root_page.select(
-            "#fboardlist > div > table > tbody > tr:nth-child(" + str(i) + ") > td.td_subject > a"
-        )[0].text.strip()
-        if ith_title == old_title:
-            break
-
-        present_post_link = root_page.select(
-            "#fboardlist > div > table > tbody > tr:nth-child(" + str(i) + ") > td.td_subject > a"
-        )[0].attrs["href"]
-        post_page = get_html(present_post_link)
-        title = post_page.select("#bo_v_title")[0].text.strip()
-        date = post_page.select("#bo_v_info > strong:nth-child(4)")[0].text
-        content = post_page.select("#bo_v_con")[0].text.strip()
-
-        text = "Title: " + title + "\n\n" + "Date:" + date + "\n\n" + "Content:" + content
-        for _ in range(10):
-            try:
-                bot.sendMessage(chat_id=chat_id, text=text)
-                break
-            except telegram.error.NetworkError as e:
-                print(e)
-                time.sleep(3)
-        print(text)
-
-    old_title = latest_title
-    time.sleep(scrapping_period)
-
-
-driver.quit()
-
+    # Exit the chrome when ctrl+c pressed
+    coolenjoy_chrome.driver.quit()
