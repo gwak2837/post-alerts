@@ -60,6 +60,7 @@ class TelegramBot:
         self.chat_ids |= self.get_chat_ids()
 
         message_sent = False
+        sent_chat_id = []
 
         # Send the message to all users in chat_id_set
         for chat_id in self.chat_ids:
@@ -67,6 +68,7 @@ class TelegramBot:
                 try:
                     self.bot.send_message(chat_id=chat_id, text=message)
                     message_sent = True
+                    sent_chat_id.append(chat_id)
                     break
                 except telegram.error.NetworkError as error:
                     print(error)
@@ -74,7 +76,7 @@ class TelegramBot:
                     time.sleep(1)
 
         if message_sent:
-            print("The message has sent to", self.chat_ids, message.replace("\n", " ")[:35], "...")
+            print("The message has sent to", sent_chat_id, message.replace("\n", " ")[:35], "...")
         else:
             print("Failed to send message because there was no recipient")
 
