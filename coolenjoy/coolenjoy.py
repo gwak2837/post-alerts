@@ -79,7 +79,6 @@ chat_ids = set(json.loads(os.getenv("CHAT_IDs")))
 
 # Initialize constants
 COMMUNITY_URL = "http://www.coolenjoy.net/bbs/jirum"
-"#fboardlist > div > table > tbody > tr:nth-child(3)"
 POST_TITLES_XPATH = '//*[@id="fboardlist"]/div/table/tbody/tr[3]/td[2]/a/text()'
 POST_LINKS_CSS_SELECTOR = "#fboardlist > div > table > tbody > tr:not(.bo_notice) > td.td_subject > a"
 POST_TITLES_CSS_SELECTOR = "#fboardlist > div > table > tbody > tr:not(.bo_notice) > td.td_subject > a"
