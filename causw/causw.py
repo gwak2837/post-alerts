@@ -24,22 +24,21 @@ class CAUSWChrome(Chrome):
 
             # Must get all post links and titles in the 1st page
             if post_links and post_titles:
-                a = [
-                    (post_link["href"][1:], post_title.get_text().strip() + post_state.get_text().strip())
+                return [
+                    (post_link["href"][1:], post_title.get_text().strip() + " " + post_state.get_text().strip())
                     for post_link, post_title, post_state in zip(post_links, post_titles, post_states)
                 ]
-                print(a)
-                time.sleep(1000)
-                return a
 
     def get_message_from(self, post_link, post_title):
+        ######### <<--- 할 일
+
         # Go to the post details page
-        if not self.go_to_page(post_link):
+        if not self.go_to_page(BASE_URL + post_link):
             return "Fail to get a message with post details"
 
         # Get the date of writing
-        date = self.get_bs4_element(DATE_CSS_SELECTOR)
-        date = date["title"] if date else "None"
+        # date = self.get_bs4_element(DATE_CSS_SELECTOR)
+        # date = date["title"] if date else "None"
 
         # Get the summary of the post
         # header_ths = self.get_bs4_elements(HEADER_TH_CSS_SELECTOR)
@@ -48,19 +47,17 @@ class CAUSWChrome(Chrome):
         # header = header if header else "None"
 
         # Get the post content
-        contents = self.get_bs4_element(CONTENT_CSS_SELECTOR)
+        contents = self.get_bs4_elements(POST_ALL_CSS_SELECTOR)
         if contents:
-            content_buffer = []
-            for bs4_element in contents.contents:
-                if str(type(bs4_element)) == "<class 'bs4.element.NavigableString'>":
-                    content_buffer.append(bs4_element.string)
-                elif bs4_element.name not in ["font", "span", "div"]:
-                    content_buffer.append(bs4_element.get_text())
-            content = "".join(content_buffer)
+            content_buffer = [content.get_text() for content in contents]
+            content = "\n".join(content_buffer)
         else:
             content = "None"
 
-        return "<题目> " + post_title + "\n\n<发表于> " + date + "\n\n<基本信息>\n" + "\n\n<本文>\n" + content
+        print(content)
+        time.sleep(1000)
+
+        return "<제목> " + post_title + "\n\n<내용>\n" + content
 
 
 # Get user ID, password, bot token from '.env'
@@ -69,13 +66,18 @@ causw_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
 chat_ids = set(json.loads(os.getenv("CHAT_IDs")))
 
 # Initialize constants
+BASE_URL = "https://sw.cau.ac.kr/core/program"
 COMMUNITY_URL = "https://sw.cau.ac.kr/core/program/programalllist?menuid=001004001004&searchallyn=Y"
 POST_LINKS_CSS_SELECTOR = "#iph_content > div > div.list_type_mh1.mob_view.mt3 > ul > li > div > p.t1 > a"
 POST_TITLES_CSS_SELECTOR = "#iph_content > div > div.list_type_mh1.mob_view.mt3 > ul > li > div > p.t1 > a"
 POST_STATES_CSS_SELECTOR = "#iph_content > div > div.list_type_mh1.mob_view.mt3 > ul > li > p > span"
-DATE_CSS_SELECTOR = ""
-HEADERS_CSS_SELECTOR = ""
-CONTENT_CSS_SELECTOR = ""
+
+POST_CSS_SELECTOR = "#programForm > div > div.view_type_h1.mt3 > table > tbody"
+COMPANY_NAME_CSS_SELECTOR = POST_CSS_SELECTOR + " > tr:first-child > td"
+HEADERS_CSS_SELECTOR = POST_STATES_CSS_SELECTOR + " > tr:not(:last-child) > td"
+
+CONTENT_CSS_SELECTOR = POST_CSS_SELECTOR + " > tr:nth-child(6) > td"
+POST_ALL_CSS_SELECTOR = POST_CSS_SELECTOR + " > tr"
 
 
 if __name__ == "__main__":
