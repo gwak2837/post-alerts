@@ -4,17 +4,15 @@
 
 각 사이트 게시판에 새 글이 올라올 때마다 텔레그램으로 알림을 받을 수 있다.
 
-
-
 ## 사용법
 
 #### 0. 환경 설정
 
 https://sites.google.com/a/chromium.org/chromedriver/downloads
 
-위 링크에서 자신의 운영체제 및 설치된 크롬 버전에 맞는 크롬 드라이버를 다운받아 루트 경로에 저장한다.
+위 링크에서 자신의 운영체제 및 설치된 크롬 버전에 맞는 크롬 드라이버를 다운받아 프로젝트 루트 경로(`post-alerts` 폴더 안)에 저장한다.
 
-``` shell
+```shell
 > python -m pip install selenium bs4 python-telegram-bot python-dotenv
 ```
 
@@ -42,8 +40,6 @@ https://blog.psangwoo.com/coding/2016/12/08/python-telegram-bot-1.html
 
 각 프로젝트 설명에 따른다.
 
-
-
 ## 각 폴더 설명
 
 #### 1. `common`
@@ -53,8 +49,6 @@ https://blog.psangwoo.com/coding/2016/12/08/python-telegram-bot-1.html
 #### 2. 그 외
 
 각 사이트의 새로운 게시글을 텔레그램으로 보내준다.
-
-
 
 ## 공식 문서
 
@@ -74,22 +68,21 @@ https://python-telegram-bot.readthedocs.io/en/stable/index.html
 
 https://saurabh-kumar.com/python-dotenv/
 
-
-
 ## 개발 노트
 
 ### 셀레늄 예외
 
 #### `StaleElementReferenceException`
 
-특정 웹 엘리먼트가 변경됐는데 바뀌기 전의 웹 엘리먼트를 참조했을 때 발생한다. 
+특정 웹 엘리먼트가 변경됐는데 바뀌기 전의 웹 엘리먼트를 참조했을 때 발생한다.
 
 #### `NoSuchElementException`
 
 현재 페이지에서 특정 웹 엘리먼트를 `Timedout` 시간 내에 찾지 못하면 발생한다.
 
-### Element search perfomance 
-``` bash
+### Element search perfomance
+
+```bash
 ID > name > css selector > xpath
 ```
 
