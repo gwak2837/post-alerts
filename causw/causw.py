@@ -3,6 +3,7 @@ import sys
 import time
 import json
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
 
 # Add modules in common/functions.py - will be deprecated
 sys.path.append(os.path.dirname(os.getcwd()))
@@ -30,34 +31,34 @@ class CAUSWChrome(Chrome):
                 ]
 
     def get_message_from(self, post_link, post_title):
-        ######### <<--- 할 일
-
         # Go to the post details page
         if not self.go_to_page(BASE_URL + post_link):
             return "Fail to get a message with post details"
 
-        # Get the date of writing
-        # date = self.get_bs4_element(DATE_CSS_SELECTOR)
-        # date = date["title"] if date else "None"
-
-        # Get the summary of the post
-        # header_ths = self.get_bs4_elements(HEADER_TH_CSS_SELECTOR)
-        # header_tds = self.get_bs4_elements(HEADER_TD_CSS_SELECTOR)
-        # header = "\n".join([th.get_text() + td.get_text() for th, td in zip(header_ths, header_tds)])
-        # header = header if header else "None"
+        # Get the post summary
+        post_trs = self.get_bs4_elements(POST_CSS_SELECTOR)
+        if post_trs:
+            company_name = post_trs[0].td.get_text().strip()
+            progress_period = post_trs[1].td.get_text().strip()
+            application_period = post_trs[2].td.get_text().strip()
+            place_of_work = post_trs[3].td.get_text().strip()
+            attachment = post_trs[4].td.get_text().strip()
+            header_buffer = [
+                f"기업명 : {company_name}",
+                f"진행기간 : {progress_period}",
+                f"신청기간 : {application_period}",
+                f"근무장소 : {place_of_work}",
+                f"첨부 : {attachment}",
+            ]
+            header = "\n".join(header_buffer)
+        else:
+            header = "None"
 
         # Get the post content
-        contents = self.get_bs4_elements(POST_ALL_CSS_SELECTOR)
-        if contents:
-            content_buffer = [content.get_text() for content in contents]
-            content = "\n".join(content_buffer)
-        else:
-            content = "None"
+        content = self.get_bs4_element(CONTENT_CSS_SELECTOR)
+        content = content.get_text().strip() if content else "None"
 
-        print(content)
-        time.sleep(1000)
-
-        return "<제목> " + post_title + "\n\n<내용>\n" + content
+        return "<제목> " + post_title + "\n\n<요약>\n" + header + "\n\n<내용>\n" + content
 
 
 # Get user ID, password, bot token from '.env'
@@ -72,12 +73,8 @@ POST_LINKS_CSS_SELECTOR = "#iph_content > div > div.list_type_mh1.mob_view.mt3 >
 POST_TITLES_CSS_SELECTOR = "#iph_content > div > div.list_type_mh1.mob_view.mt3 > ul > li > div > p.t1 > a"
 POST_STATES_CSS_SELECTOR = "#iph_content > div > div.list_type_mh1.mob_view.mt3 > ul > li > p > span"
 
-POST_CSS_SELECTOR = "#programForm > div > div.view_type_h1.mt3 > table > tbody"
-COMPANY_NAME_CSS_SELECTOR = POST_CSS_SELECTOR + " > tr:first-child > td"
-HEADERS_CSS_SELECTOR = POST_STATES_CSS_SELECTOR + " > tr:not(:last-child) > td"
-
-CONTENT_CSS_SELECTOR = POST_CSS_SELECTOR + " > tr:nth-child(6) > td"
-POST_ALL_CSS_SELECTOR = POST_CSS_SELECTOR + " > tr"
+POST_CSS_SELECTOR = "#programForm > div > div.view_type_h1.mt3 > table > tbody > tr:not(:last-child)"
+CONTENT_CSS_SELECTOR = "#programForm > div > div.view_type_h1.mt3 > table > tbody > tr:last-child > td"
 
 
 if __name__ == "__main__":
