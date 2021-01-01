@@ -42,6 +42,7 @@ class TelegramBot:
     # - pure function
     def get_chat_ids(self):
         # Get the recent chat id list from the bot
+        updates = []
         for _ in range(10):
             try:
                 updates = self.bot.get_updates(timeout=10)
